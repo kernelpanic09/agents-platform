@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.db
+*.db-wal
+*.db-shm
+.env
+.superpowers/
+.claude/
+.DS_Store
+*.log
+.vscode/
+.idea/
+coverage/
+.env.local

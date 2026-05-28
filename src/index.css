@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --agent-color: #8B5CF6;
+  --agent-glow: rgba(139, 92, 246, 0.15);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+
+/* Glassmorphism card */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-hover {
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Agent card with dynamic color glow */
+.agent-card {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  contain: layout style;
+  will-change: transform;
+}
+
+.agent-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 0 30px var(--agent-glow), 0 8px 32px rgba(0, 0, 0, 0.4);
+  border-color: color-mix(in srgb, var(--agent-color) 30%, transparent);
+}
+
+/* Staggered entrance animation.
+ * Note: opacity-only on purpose. Using `transform` here would make every page
+ * using this class a containing block for `fixed` descendants, which traps
+ * modals that expect to be viewport-positioned. */
+@keyframes fadeInUp {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #3B82F6, #8B5CF6, #EC4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Copy button animation */
+.copy-flash {
+  animation: flash 0.3s ease-out;
+}
+
+@keyframes flash {
+  0% { background: rgba(255,255,255,0.15); }
+  100% { background: transparent; }
+}
+
+/* Skill badge pulse */
+.skill-badge {
+  transition: all 0.2s ease;
+}
+
+.skill-badge:hover {
+  transform: scale(1.05);
+}
+
+/* Avatar ring animation */
+@keyframes ringPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+.avatar-ring {
+  animation: ringPulse 3s ease-in-out infinite;
+}
+
+/* Compose bar — sticky bottom with slide-up entrance */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.compose-bar {
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Selected card state */
+.agent-card-selected {
+  box-shadow: 0 0 20px var(--agent-glow), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Checkbox scale-in animation */
+@keyframes checkboxScale {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.checkbox-scale {
+  animation: checkboxScale 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Quick task card hover */
+.quick-task-card:hover {
+  border-color: color-mix(in srgb, var(--agent-color) 30%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--agent-color) 10%, transparent);
+}
