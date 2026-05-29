@@ -9,6 +9,24 @@ An AI agent orchestration platform with RAG, LangGraph workflows, observability,
 
 ---
 
+## Screenshots
+
+**Agent directory** — 26 specialized personas, filterable by domain, each with skills, tools, and knowledge sources.
+
+![Agent directory](docs/screenshots/home.png)
+
+**Run history** — every agent execution with status, composition mode, summary, and duration.
+
+![Run history](docs/screenshots/runs.png)
+
+**Schedules** — cron-scheduled multi-agent jobs in parallel, sequential, or meeting mode.
+
+![Schedules](docs/screenshots/schedules.png)
+
+**LangGraph workflows** — task routing across RAG queries, multi-step tool use, SSH dispatch, and multi-agent meetings.
+
+![Workflows](docs/screenshots/workflows.png)
+
 ## What is this
 
 Agents Platform is a full-stack application for building, managing, and running AI agents. Each agent has a persona, system prompt, skill set, tool inventory, and knowledge sources. The platform dispatches agents via SSH to a remote Claude Code session, tracks every run with cost and latency telemetry, and surfaces the results through a dark glassmorphism dashboard.
