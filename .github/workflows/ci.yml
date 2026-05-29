@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify server health
+        run: |
+          # Start server in background and wait for it to bind
+          node server/index.js &
+          SERVER_PID=$!
+
+          # Retry up to 10 seconds
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:3001/health > /dev/null 2>&1; then
+              echo "Server is healthy"
+              break
+            fi
+            if [ "$i" -eq 10 ]; then
+              echo "Server did not become healthy in time"
+              kill "$SERVER_PID" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          curl -sf http://localhost:3001/health
+          kill "$SERVER_PID"
+
+      - name: ESLint
+        # Only run if lint script is defined in package.json
+        run: |
+          if node -e "const p = require('./package.json'); process.exit(p.scripts && p.scripts.lint ? 0 : 1);" 2>/dev/null; then
+            npm run lint
+          else
+            echo "No lint script found, skipping"
+          fi
