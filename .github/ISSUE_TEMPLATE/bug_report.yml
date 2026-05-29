@@ -1,0 +1,40 @@
+name: Bug report
+description: Something isn't working as expected
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What's going wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: false
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened?
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Version / environment
+      description: Release tag, commit SHA, Docker image tag, Node version, OS
+    validations:
+      required: false
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the issue (optional but helpful)
+    validations:
+      required: false

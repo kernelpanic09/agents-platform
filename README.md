@@ -352,6 +352,14 @@ SSH dispatch runs Claude Code with `--dangerously-skip-permissions` for unattend
 
 ---
 
+## Related Projects
+
+- [mcp-server-aws](https://github.com/kernelpanic09/mcp-server-aws) — gives agents direct access to AWS resources via Model Context Protocol, so instead of SSHing to a host and running `aws` commands, a Claude session can query EC2, IAM, cost data, and more through a local MCP server.
+- [terraform-aws-modules](https://github.com/kernelpanic09/terraform-aws-modules) — provisions the AWS infrastructure this platform can run on. The `bedrock-knowledge-base` module in particular is a native AWS alternative to the Qdrant/Ollama RAG stack used here if you'd rather keep everything in one cloud.
+- [github-actions-platform](https://github.com/kernelpanic09/github-actions-platform) — the CI/CD workflow library I use across this and other projects, covering Docker build/push, Terraform plan/apply, and release automation.
+
+---
+
 ## License
 
 MIT
