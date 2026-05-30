@@ -47,6 +47,31 @@ It ships with 20 pre-built agent personas covering infrastructure, development, 
 
 ---
 
+## Screenshots
+
+The UI is a dark, glassmorphism dashboard.
+
+### Agent Directory
+![Agent Directory](docs/screenshots/home.png)
+
+The 20-agent roster with search, category filters, and quick-task cards.
+
+### Schedules and Runs
+![Schedules](docs/screenshots/schedules.png)
+
+Ten production-grade scheduled workflows spanning all three composition modes — parallel, sequential, and meeting.
+
+![Run History](docs/screenshots/runs.png)
+
+Run history with status, duration, and per-run summaries.
+
+### LangGraph Workflows
+![Workflows](docs/screenshots/workflows.png)
+
+Route visualization for multi-step agent workflows.
+
+---
+
 ## Architecture
 
 ```
@@ -76,6 +101,27 @@ Express.js (port 3001)
                 claude -p "<system prompt + task>"
                 (Claude Code CLI, parallel / sequential / meeting modes)
 ```
+
+---
+
+## Production Schedule Library
+
+The platform ships with 10 ready-to-use scheduled workflows that exercise all three
+composition modes against real platform operations — the kind a platform team runs on a
+cron cadence. Each bundles a curated set of agents, a rich task prompt, and a realistic schedule.
+
+| Schedule | Mode | Cadence | Agents |
+|----------|------|---------|--------|
+| Nightly Infrastructure Audit | parallel | daily 02:00 | Atlas, Sentinel, Bastion, Patch |
+| Security & Compliance Sweep | sequential | Mon 03:00 | Vault, Cipher, Sentinel, Relay |
+| Incident Response Drill | meeting | Fri 14:00 | Atlas, Mirror, Bastion, Sentinel, Relay |
+| Release Readiness Pipeline | sequential | weekdays 09:00 | Tempo, Dock, Flux, Proxy |
+| Cost & Performance Review | parallel | Mon 08:00 | Scout, Sentinel, Oracle, Ledger |
+| Backup Restore Verification Drill | sequential | Tue 04:17 | Bastion, Mirror, Ledger, Relay |
+| Expiry & Capacity Forecast | parallel | Thu 07:23 | Cipher, Proxy, Atlas, Sentinel |
+| Dependency & CVE Patch Triage | sequential | Wed 05:47 | Dock, Patch, Vault, Flux |
+| Observability Coverage Audit | meeting | Wed 13:47 | Sentinel, Scout, Relay, Oracle |
+| Data Pipeline & Ingestion Health Check | parallel | daily 06:17 | Scout, Oracle, Sentinel, Relay |
 
 ---
 
