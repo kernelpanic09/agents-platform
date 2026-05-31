@@ -1,5 +1,10 @@
 # agents-platform
 
+[![CI](https://github.com/kernelpanic09/agents-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/kernelpanic09/agents-platform/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/kernelpanic09/agents-platform)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/kernelpanic09/agents-platform?include_prereleases&sort=semver)](https://github.com/kernelpanic09/agents-platform/releases)
+[![Last commit](https://img.shields.io/github/last-commit/kernelpanic09/agents-platform)](https://github.com/kernelpanic09/agents-platform/commits)
+
 An AI agent orchestration platform with RAG, LangGraph workflows, observability, and evaluation. Manage a roster of agent personas, run them against real infrastructure via SSH, and measure their performance over time.
 
 ---
