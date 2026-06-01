@@ -17,7 +17,7 @@ It ships with 20 pre-built agent personas covering infrastructure, development, 
 
 > ### 💡 Why SSH + a terminal instead of the Anthropic API?
 >
-> By design, the platform runs each agent by opening an **SSH session to a host that has Claude Code installed and spawning `claude -p` in a terminal** — rather than calling the Anthropic API. That host's **Claude subscription** powers the run, so executing agents consumes subscription tokens and incurs **no per-token API charges**. For a self-hosted, always-on agent fleet (scheduled audits, multi-agent runs), this keeps operating cost effectively at zero.
+> By design, the platform runs each agent by opening an **SSH session to a host that has Claude Code installed and spawning `claude -p` in a terminal** — rather than calling the Anthropic API. That host's **Claude subscription** powers the run, so executing agents consumes subscription tokens and incurs **no per-token API charges**. For a self-hosted, always-on agent fleet (scheduled audits, multi-agent runs), this keeps operating cost minimal.
 >
 > **What this means in practice:**
 > - **Multi-agent runs (parallel / sequential / meeting) need no `ANTHROPIC_API_KEY`** — they dispatch purely over SSH.
