@@ -66,6 +66,10 @@ The 20-agent roster with search, category filters, and quick-task cards.
 
 Ten production-grade scheduled workflows spanning all three composition modes — parallel, sequential, and meeting.
 
+![New Schedule form](docs/screenshots/schedule-form.png)
+
+Creating a schedule from one form: pick which agents take part, choose a composition mode (parallel / sequential / meeting), scope the run to a specific app (the agents `cd` into it and read its `CLAUDE.md`), write the task prompt, and set the cadence with the cron builder — which previews the next runs and the human-readable schedule.
+
 ![Run History](docs/screenshots/runs.png)
 
 Run history with status, duration, and per-run summaries.
