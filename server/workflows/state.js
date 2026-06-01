@@ -7,6 +7,8 @@ export const AgentState = Annotation.Root({
   mode: Annotation({ reducer: (_, v) => v, default: () => 'parallel' }),
   model: Annotation({ reducer: (_, v) => v, default: () => 'haiku' }),
   cwd: Annotation({ reducer: (_, v) => v, default: () => '/tmp' }),
+  backend: Annotation({ reducer: (_, v) => v, default: () => 'subscription' }),
+  runId: Annotation({ reducer: (_, v) => v, default: () => null }),
   ragContext: Annotation({ reducer: (_, v) => v, default: () => [] }),
   routeDecision: Annotation({ reducer: (_, v) => v, default: () => 'rag' }),
   toolResults: Annotation({ reducer: (prev, v) => [...prev, ...v], default: () => [] }),

@@ -181,10 +181,32 @@ docker compose exec ollama ollama pull nomic-embed-text
 | `SSH_TARGET` | _(required for dispatch)_ | Remote host in `user@host` format |
 | `SSH_KEY_PATH` | _(optional)_ | Path to SSH private key |
 | `CLAUDE_MODEL` | `sonnet` | Claude model to use for SSH dispatch |
+| `EXECUTION_BACKEND` | `subscription` | Default run backend: `subscription` (SSH + `claude -p`, no API cost) or `api` (Anthropic API) |
+| `API_MAX_TOKENS` | `8192` | Max output tokens per turn when the `api` backend is used |
 | `ENABLE_SCHEDULER` | `false` | Enable cron scheduler and manual `/run` endpoint |
 | `MAX_CONCURRENT_RUNS` | `2` | Max parallel SSH dispatch jobs |
 | `DISCORD_WEBHOOK_URL` | _(optional)_ | Discord webhook for run notifications |
 | `DEMO_MODE` | `false` | Seed demo data and disable SSH |
+
+---
+
+## Execution backends
+
+Agents can be dispatched through either of two backends. The default keeps operating cost at zero by using a Claude subscription; the API backend trades that for portability.
+
+| Backend | How it runs | Cost | Needs `ANTHROPIC_API_KEY`? | Best for |
+|---------|-------------|------|----------------------------|----------|
+| `subscription` (default) | SSH to a host running Claude Code, spawns `claude -p` in a terminal | Subscription tokens — **no per-token API charge** | No | A self-hosted box with a Claude subscription; always-on fleets |
+| `api` (opt-in) | Calls the Anthropic API directly (`@anthropic-ai/sdk`) | Pay-per-token | Yes | Headless / cloud runs, or when no subscription host is available |
+
+**Selecting a backend** (precedence — most specific wins):
+
+1. **Per-schedule** — set `execution_backend` to `subscription` or `api` on a schedule (also selectable in the "New Schedule" form). `null` inherits the global default.
+2. **Global default** — the `EXECUTION_BACKEND` env var (`subscription` when unset).
+
+Both backends return identical run records, and `api`-backend runs are metered into the cost dashboard (tagged `source = api`), so you can compare real spend across backends.
+
+> The default is `subscription` precisely so the platform costs nothing extra to operate. Switch to `api` only when you want pay-per-token billing or can't reach a subscription host.
 
 ---
 

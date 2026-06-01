@@ -19,13 +19,13 @@ export function initTelemetry(db) {
   _db = db;
 }
 
-export function recordTrace({ runId = null, agentId = null, stepName, model, inputTokens = 0, outputTokens = 0, latencyMs, status = 'success', inputPreview = '', outputPreview = '' }) {
+export function recordTrace({ runId = null, agentId = null, stepName, model, inputTokens = 0, outputTokens = 0, latencyMs, status = 'success', source = 'api', inputPreview = '', outputPreview = '' }) {
   if (!_db) return null;
   const costUsd = calculateCost(model, inputTokens, outputTokens);
   const result = _db.prepare(`
-    INSERT INTO traces (run_id, agent_id, step_name, model, input_tokens, output_tokens, latency_ms, cost_usd, status, input_preview, output_preview)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(runId, agentId, stepName, model, inputTokens, outputTokens, latencyMs, costUsd, status, inputPreview?.slice(0, 500) || '', outputPreview?.slice(0, 500) || '');
+    INSERT INTO traces (run_id, agent_id, step_name, model, input_tokens, output_tokens, latency_ms, cost_usd, status, source, input_preview, output_preview)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(runId, agentId, stepName, model, inputTokens, outputTokens, latencyMs, costUsd, status, source, inputPreview?.slice(0, 500) || '', outputPreview?.slice(0, 500) || '');
   return { traceId: result.lastInsertRowid, costUsd };
 }
 

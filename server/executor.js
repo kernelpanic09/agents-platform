@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { SAFETY_PREAMBLE } from './safety-prompt.js';
+import { recordTrace } from './observability/telemetry.js';
 
 const SSH_TARGET = process.env.SSH_TARGET || 'ubuntu@your-host';
 const SSH_KEY_PATH = process.env.SSH_KEY_PATH || '/secrets/ssh/id_ed25519';
@@ -10,6 +11,19 @@ const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:3001';
 // Parallel-mode agents fire simultaneously but share the remote host's state.
 // Cap concurrent SSH calls per run to stay safe.
 const MAX_PARALLEL_PER_RUN = parseInt(process.env.MAX_PARALLEL_PER_RUN || '3', 10);
+
+// Execution backend: 'subscription' (default) dispatches over SSH to `claude -p`,
+// using the remote host's Claude subscription — no per-token API cost. 'api' calls
+// the Anthropic API directly (opt-in: for headless/cloud or pay-per-token use).
+const EXECUTION_BACKEND = String(process.env.EXECUTION_BACKEND || 'subscription').toLowerCase();
+// The SSH backend passes the model alias to `claude` directly; the API backend
+// needs a concrete model id. Mirrors workflows/graphs.js MODEL_MAP + telemetry pricing.
+const ANTHROPIC_MODEL_MAP = {
+  haiku: 'claude-haiku-4-5-20251001',
+  sonnet: 'claude-sonnet-4-6-20250514',
+  opus: 'claude-opus-4-7-20250219',
+};
+const API_MAX_TOKENS = parseInt(process.env.API_MAX_TOKENS || '8192', 10);
 
 /**
  * Build the prompt for a single agent in parallel/sequential mode.
@@ -163,6 +177,82 @@ export function runClaudeRemote(prompt, { timeoutMs = RUN_TIMEOUT_MS, sshTarget 
 }
 
 /**
+ * Resolve which execution backend a run should use.
+ * Precedence: per-schedule `execution_backend` > EXECUTION_BACKEND env > 'subscription'.
+ */
+export function resolveBackend(schedule = {}) {
+  const v = String(schedule.execution_backend || EXECUTION_BACKEND || 'subscription').toLowerCase();
+  return v === 'api' ? 'api' : 'subscription';
+}
+
+/** Map a model alias (haiku/sonnet/opus) to a concrete Anthropic API model id. */
+export function apiModelId(model) {
+  return ANTHROPIC_MODEL_MAP[model] || ANTHROPIC_MODEL_MAP[CLAUDE_MODEL] || ANTHROPIC_MODEL_MAP.sonnet;
+}
+
+/**
+ * Build a stdout payload shaped like `claude -p --output-format json`, so the
+ * rest of the pipeline (parseClaudeJson / extractSummary) stays backend-agnostic.
+ */
+export function buildApiResultJson({ text, usage = {}, model }) {
+  return JSON.stringify({
+    result: text || '',
+    usage: { input_tokens: usage.input_tokens || 0, output_tokens: usage.output_tokens || 0 },
+    model,
+    backend: 'api',
+  });
+}
+
+/**
+ * Run one agent turn via the Anthropic API (opt-in backend). Returns the SAME
+ * shape as runClaudeRemote: { stdout, stderr, exitCode, timedOut }. The SDK is
+ * imported lazily so the server boots without ANTHROPIC_API_KEY when the default
+ * subscription backend is in use. Pass `_client` to inject a stub in tests.
+ */
+export async function runClaudeApi(prompt, { model = CLAUDE_MODEL, maxTokens = API_MAX_TOKENS, runId = null, agentId = null, _client = null } = {}) {
+  const started = Date.now();
+  const apiModel = apiModelId(model);
+  try {
+    let client = _client;
+    if (!client) {
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      client = new Anthropic(); // reads ANTHROPIC_API_KEY from the environment
+    }
+    const resp = await client.messages.create({
+      model: apiModel,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text = (resp.content || [])
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n');
+    const usage = resp.usage || {};
+    try {
+      recordTrace({
+        runId, agentId, stepName: 'api_dispatch', model: apiModel,
+        inputTokens: usage.input_tokens || 0, outputTokens: usage.output_tokens || 0,
+        latencyMs: Date.now() - started, source: 'api',
+        inputPreview: prompt, outputPreview: text,
+      });
+    } catch { /* telemetry is best-effort; never fail a run on it */ }
+    return { stdout: buildApiResultJson({ text, usage, model: apiModel }), stderr: '', exitCode: 0, timedOut: false };
+  } catch (err) {
+    return { stdout: '', stderr: `api backend error: ${err.message}`, exitCode: 1, timedOut: false };
+  }
+}
+
+/**
+ * Backend-agnostic dispatcher. Selects the SSH (subscription) or Anthropic API
+ * backend from `opts.backend`. Both backends return the same result shape, so
+ * callers (executeRun, runner.js, the ssh graph node) are backend-agnostic.
+ */
+export function runClaude(prompt, opts = {}) {
+  if ((opts.backend || 'subscription') === 'api') return runClaudeApi(prompt, opts);
+  return runClaudeRemote(prompt, opts);
+}
+
+/**
  * Send a Discord notification via webhook URL.
  * No-ops when DISCORD_WEBHOOK_URL is not set.
  */
@@ -208,12 +298,14 @@ export async function executeRun({ db, runId, schedule, agents }) {
   const runOpts = {
     cwd: schedule.app_directory || '/tmp',
     model: schedule.model || CLAUDE_MODEL,
+    backend: resolveBackend(schedule),
+    runId,
   };
 
   try {
     if (schedule.mode === 'meeting') {
       const prompt = buildMeetingPrompt(agents, schedule.task_prompt);
-      const { stdout, stderr, exitCode: ec, timedOut } = await runClaudeRemote(prompt, runOpts);
+      const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, runOpts);
       if (timedOut) {
         status = 'timeout';
         errorMessage = 'Run exceeded timeout';
@@ -230,7 +322,7 @@ export async function executeRun({ db, runId, schedule, agents }) {
       let prior = null;
       for (const agent of agents) {
         const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior);
-        const { stdout, stderr, exitCode: ec, timedOut } = await runClaudeRemote(prompt, runOpts);
+        const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, agentId: agent.id });
         if (timedOut) {
           status = 'timeout';
           errorMessage = `Agent ${agent.name} timed out`;
@@ -262,7 +354,7 @@ export async function executeRun({ db, runId, schedule, agents }) {
         const batch = agents.slice(i, i + MAX_PARALLEL_PER_RUN);
         const batchResults = await Promise.all(batch.map(async (agent) => {
           const prompt = buildAgentPrompt(agent, schedule.task_prompt);
-          const result = await runClaudeRemote(prompt, runOpts);
+          const result = await runClaude(prompt, { ...runOpts, agentId: agent.id });
           return { agent, ...result };
         }));
         results.push(...batchResults);

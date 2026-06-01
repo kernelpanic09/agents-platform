@@ -107,13 +107,27 @@ export default function SchedulePreview({ schedule = {}, agents = [] }) {
           </div>
         </div>
 
-        <div>
-          <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1">
-            <FolderGit2 size={10} className="inline mr-1" /> Working directory
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1">
+              <FolderGit2 size={10} className="inline mr-1" /> Working directory
+            </div>
+            <code className="text-xs text-zinc-300 font-mono">
+              {schedule.app_directory || '/tmp (unscoped)'}
+            </code>
           </div>
-          <code className="text-xs text-zinc-300 font-mono">
-            {schedule.app_directory || '/tmp (unscoped)'}
-          </code>
+          <div>
+            <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1">
+              <Cpu size={10} className="inline mr-1" /> Backend
+            </div>
+            <div className="text-sm text-white">
+              {schedule.execution_backend === 'api'
+                ? 'Anthropic API'
+                : schedule.execution_backend === 'subscription'
+                ? 'Subscription (SSH)'
+                : 'Platform default'}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -34,6 +34,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
   const [agentsList, setAgentsList] = useState(allAgents || []);
   const [appDirectory, setAppDirectory] = useState('');
   const [model, setModel] = useState('');
+  const [executionBackend, setExecutionBackend] = useState('');
   const [appsList, setAppsList] = useState([]);
   const [previewStep, setPreviewStep] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -140,6 +141,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
           recurring,
           app_directory: appDirectory || null,
           model: model || null,
+          execution_backend: executionBackend || null,
         }),
       });
       const body = await res.json();
@@ -154,6 +156,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
       setRecurring(true);
       setAppDirectory('');
       setModel('');
+      setExecutionBackend('');
       setPreviewStep(false);
       onClose?.();
     } catch (err) {
@@ -198,6 +201,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
               recurring,
               app_directory: appDirectory || null,
               model: model || null,
+              execution_backend: executionBackend || null,
             }}
             agents={selectedAgents}
           />
@@ -349,6 +353,42 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
                 {model ? `Override: ${model}` : 'Default (inherits CLAUDE_MODEL env)'}
               </p>
             </div>
+          </div>
+
+          {/* Execution backend */}
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
+              <Cpu size={12} className="inline mr-1" />
+              Execution backend
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { id: '', label: 'Default', hint: 'platform setting' },
+                { id: 'subscription', label: 'Subscription', hint: 'SSH · no API cost' },
+                { id: 'api', label: 'Anthropic API', hint: 'pay-per-token' },
+              ].map(({ id, label, hint }) => (
+                <button
+                  key={id || 'default'}
+                  type="button"
+                  onClick={() => setExecutionBackend(id)}
+                  className={`text-left px-2.5 py-1.5 rounded-lg transition-colors border ${
+                    executionBackend === id
+                      ? 'bg-violet-600/20 border-violet-500 text-white'
+                      : 'bg-zinc-900 border-white/10 text-zinc-300 hover:bg-zinc-800'
+                  }`}
+                >
+                  <div className="text-xs font-medium">{label}</div>
+                  <div className="text-[10px] text-zinc-500">{hint}</div>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              {executionBackend === 'api'
+                ? 'Runs call the Anthropic API directly (requires ANTHROPIC_API_KEY).'
+                : executionBackend === 'subscription'
+                ? 'Runs dispatch over SSH to `claude -p` — uses subscription tokens, no API cost.'
+                : 'Inherit the platform default (the EXECUTION_BACKEND env var).'}
+            </p>
           </div>
 
           {/* Task prompt */}

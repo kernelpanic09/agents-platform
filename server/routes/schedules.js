@@ -4,6 +4,7 @@ import { isValidCron, nextRunAt, previewNextRuns } from '../scheduler.js';
 const VALID_MODES = ['parallel', 'sequential', 'meeting'];
 const VALID_STATUSES = ['active', 'paused', 'completed'];
 const VALID_MODELS = ['haiku', 'sonnet', 'opus'];
+const VALID_BACKENDS = ['subscription', 'api'];
 // App directories must live under this prefix — no traversal, no absolute paths
 // outside the homelab apps tree.
 const APPS_ROOT = process.env.APPS_ROOT || '/home/ubuntu/apps';
@@ -30,6 +31,7 @@ function serializeInput(body) {
     allow_writes: body.allow_writes ? 1 : 0,
     app_directory: body.app_directory || null,
     model: body.model || null,
+    execution_backend: body.execution_backend || null,
   };
 }
 
@@ -56,6 +58,9 @@ function validateInput(body, { partial = false } = {}) {
   }
   if (body.model !== undefined && body.model !== null && body.model !== '' && !VALID_MODELS.includes(body.model)) {
     errors.push(`model must be one of: ${VALID_MODELS.join(', ')}`);
+  }
+  if (body.execution_backend !== undefined && body.execution_backend !== null && body.execution_backend !== '' && !VALID_BACKENDS.includes(body.execution_backend)) {
+    errors.push(`execution_backend must be one of: ${VALID_BACKENDS.join(', ')}`);
   }
   if (body.app_directory !== undefined && body.app_directory !== null && body.app_directory !== '') {
     const appDirRe = new RegExp(`^${APPS_ROOT.replace(/[/]/g, '\\/')}/[a-zA-Z0-9_-]+$`);
@@ -95,14 +100,14 @@ export default function schedulesRouter(db, scheduler) {
     FROM runs WHERE schedule_id = ? ORDER BY created_at DESC LIMIT 10
   `);
   const stmtInsert = db.prepare(`
-    INSERT INTO schedules (name, description, agent_ids, mode, task_prompt, cron_expression, recurring, allow_writes, app_directory, model, status, next_run_at)
-    VALUES (@name, @description, @agent_ids, @mode, @task_prompt, @cron_expression, @recurring, @allow_writes, @app_directory, @model, 'active', @next_run_at)
+    INSERT INTO schedules (name, description, agent_ids, mode, task_prompt, cron_expression, recurring, allow_writes, app_directory, model, execution_backend, status, next_run_at)
+    VALUES (@name, @description, @agent_ids, @mode, @task_prompt, @cron_expression, @recurring, @allow_writes, @app_directory, @model, @execution_backend, 'active', @next_run_at)
   `);
   const stmtUpdate = db.prepare(`
     UPDATE schedules SET
       name = ?, description = ?, agent_ids = ?, mode = ?, task_prompt = ?,
       cron_expression = ?, recurring = ?, allow_writes = ?,
-      app_directory = ?, model = ?,
+      app_directory = ?, model = ?, execution_backend = ?,
       status = ?, next_run_at = ?,
       updated_at = datetime('now')
     WHERE id = ?
@@ -179,6 +184,7 @@ export default function schedulesRouter(db, scheduler) {
       allow_writes: req.body.allow_writes !== undefined ? (req.body.allow_writes ? 1 : 0) : existing.allow_writes,
       app_directory: req.body.app_directory !== undefined ? (req.body.app_directory || null) : existing.app_directory,
       model: req.body.model !== undefined ? (req.body.model || null) : existing.model,
+      execution_backend: req.body.execution_backend !== undefined ? (req.body.execution_backend || null) : existing.execution_backend,
       status: req.body.status ?? existing.status,
     };
     const next = nextRunAt(merged.cron_expression);
@@ -186,7 +192,7 @@ export default function schedulesRouter(db, scheduler) {
     stmtUpdate.run(
       merged.name, merged.description, merged.agent_ids, merged.mode, merged.task_prompt,
       merged.cron_expression, merged.recurring, merged.allow_writes,
-      merged.app_directory, merged.model,
+      merged.app_directory, merged.model, merged.execution_backend,
       merged.status, next,
       id,
     );

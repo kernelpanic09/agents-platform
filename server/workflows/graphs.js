@@ -3,7 +3,7 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { AgentState } from './state.js';
 import { ragSearch } from '../rag/chat.js';
-import { runClaudeRemote, extractSummary, parseClaudeJson } from '../executor.js';
+import { runClaude, extractSummary, parseClaudeJson } from '../executor.js';
 import { recordTrace } from '../observability/telemetry.js';
 
 const MODEL_MAP = {
@@ -66,9 +66,9 @@ async function ragRespondNode(state) {
 }
 
 async function sshDispatchNode(state) {
-  const { stdout, stderr, exitCode, timedOut } = await runClaudeRemote(
+  const { stdout, stderr, exitCode, timedOut } = await runClaude(
     state.messages.length > 0 ? state.messages[state.messages.length - 1] : state.task,
-    { cwd: state.cwd, model: state.model }
+    { cwd: state.cwd, model: state.model, backend: state.backend, runId: state.runId, agentId: state.agentId }
   );
 
   if (timedOut) {

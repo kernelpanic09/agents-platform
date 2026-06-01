@@ -69,6 +69,7 @@ export function initDb() {
       allow_writes     INTEGER NOT NULL DEFAULT 0,
       app_directory    TEXT DEFAULT NULL,
       model            TEXT DEFAULT NULL,
+      execution_backend TEXT DEFAULT NULL,
       status           TEXT NOT NULL DEFAULT 'active',
       next_run_at      TEXT,
       last_run_at      TEXT,
@@ -125,6 +126,7 @@ export function initDb() {
       latency_ms INTEGER,
       cost_usd REAL,
       status TEXT NOT NULL DEFAULT 'success',
+      source TEXT DEFAULT 'api',
       input_preview TEXT,
       output_preview TEXT,
       metadata TEXT DEFAULT '{}',
@@ -206,6 +208,15 @@ export function initDb() {
   if (!schedCols.has('model')) {
     db.exec(`ALTER TABLE schedules ADD COLUMN model TEXT DEFAULT NULL`);
     console.log('[db] migrated: schedules.model added');
+  }
+  if (!schedCols.has('execution_backend')) {
+    db.exec(`ALTER TABLE schedules ADD COLUMN execution_backend TEXT DEFAULT NULL`);
+    console.log('[db] migrated: schedules.execution_backend added');
+  }
+  const traceCols = new Set(db.prepare(`PRAGMA table_info(traces)`).all().map(c => c.name));
+  if (!traceCols.has('source')) {
+    db.exec(`ALTER TABLE traces ADD COLUMN source TEXT DEFAULT 'api'`);
+    console.log('[db] migrated: traces.source added');
   }
 
   // Seed if empty
