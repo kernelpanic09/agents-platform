@@ -1,5 +1,5 @@
 const ROUTE_COLORS = {
-  rag: '#3B82F6',
+  rag: '#E0A82E',
   workflow: '#F97316',
   ssh: '#EF4444',
 };

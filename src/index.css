@@ -3,13 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --agent-color: #8B5CF6;
-  --agent-glow: rgba(139, 92, 246, 0.15);
+  --agent-color: #E0A82E;
+  /* per-agent accent used as a solid border on hover — flat, no glow */
+  --agent-glow: rgba(224, 168, 46, 0.12);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.1) transparent;
+  scrollbar-color: rgba(154, 147, 132, 0.3) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -21,40 +22,38 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.1);
+  background: rgba(154, 147, 132, 0.3);
   border-radius: 3px;
 }
 
-/* Glassmorphism card */
+/* Flat panel (replaces glassmorphism — solid surface, hairline border, no blur) */
 .glass {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1B1915;
+  border: 1px solid #2A261F;
 }
 
 .glass-hover {
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .glass-hover:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: #232019;
+  border-color: #3A352C;
 }
 
-/* Agent card with dynamic color glow */
+/* Agent card — flat lift + solid per-agent border on hover, no glow */
 .agent-card {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   contain: layout style;
   will-change: transform;
 }
 
 .agent-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 0 30px var(--agent-glow), 0 8px 32px rgba(0, 0, 0, 0.4);
-  border-color: color-mix(in srgb, var(--agent-color) 30%, transparent);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  border-color: color-mix(in srgb, var(--agent-color) 50%, transparent);
 }
 
 /* Staggered entrance animation.
@@ -71,12 +70,9 @@
   opacity: 0;
 }
 
-/* Gradient text */
+/* Headline accent — solid amber (replaces the blue->purple->pink gradient) */
 .gradient-text {
-  background: linear-gradient(135deg, #3B82F6, #8B5CF6, #EC4899);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #E0A82E;
 }
 
 /* Copy button animation */
@@ -124,9 +120,9 @@
   animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Selected card state */
+/* Selected card state — flat solid ring in the agent color, no glow */
 .agent-card-selected {
-  box-shadow: 0 0 20px var(--agent-glow), 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px var(--agent-color), 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* Checkbox scale-in animation */
@@ -139,8 +135,8 @@
   animation: checkboxScale 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Quick task card hover */
+/* Quick task card hover — flat lift + solid border, no glow */
 .quick-task-card:hover {
-  border-color: color-mix(in srgb, var(--agent-color) 30%, transparent);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--agent-color) 10%, transparent);
+  border-color: color-mix(in srgb, var(--agent-color) 45%, transparent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }

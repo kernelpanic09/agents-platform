@@ -10,11 +10,11 @@ const typeIcons = {
 };
 
 const typeColors = {
-  markdown: '#8B5CF6',
-  yaml: '#3B82F6',
-  terraform: '#7C3AED',
-  url: '#06B6D4',
-  transcript: '#F59E0B',
+  markdown: '#E0A82E',
+  yaml: '#7E8C3F',
+  terraform: '#C2603C',
+  url: '#9A6B3C',
+  transcript: '#B4451F',
 };
 
 export default function SourceList({ agentId, refreshKey }) {

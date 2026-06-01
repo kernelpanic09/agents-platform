@@ -15,12 +15,12 @@ const SOURCE_ICONS = {
 };
 
 const SOURCE_COLORS = {
-  bookstack: '#F59E0B',
-  file: '#8B5CF6',
-  directory: '#8B5CF6',
+  bookstack: '#E0A82E',
+  file: '#C2603C',
+  directory: '#9A6B3C',
   grafana: '#F97316',
-  prometheus: '#EF4444',
-  url: '#3B82F6',
+  prometheus: '#B4451F',
+  url: '#7E8C3F',
 };
 
 export default function AgentProfile() {
@@ -227,7 +227,7 @@ export default function AgentProfile() {
 
       {/* Activate Modal */}
       {showActivate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowActivate(false)} role="dialog" aria-label={`Activate ${agent.name}`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setShowActivate(false)} role="dialog" aria-label={`Activate ${agent.name}`}>
           <div className="glass rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-lg">Activate {agent.name}</h2>

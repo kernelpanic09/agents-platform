@@ -169,7 +169,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
 
   return createPortal((
     <div
-      className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md overflow-y-auto"
+      className="fixed inset-0 z-[100] bg-black/85 overflow-y-auto"
       onClick={onClose}
     >
       <div className="min-h-screen flex items-start sm:items-center justify-center p-4 sm:py-10">

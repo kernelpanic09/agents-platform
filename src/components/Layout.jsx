@@ -49,7 +49,7 @@ export default function Layout({ children }) {
         href="https://github.com/kernelpanic09/agents-platform"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-3 left-3 z-40 text-[10px] font-mono px-2 py-1 rounded-md bg-zinc-900/80 border border-white/10 text-zinc-500 hover:text-zinc-300 hover:border-white/20 backdrop-blur-sm transition-colors select-none"
+        className="fixed bottom-3 left-3 z-40 text-[10px] font-mono px-2 py-1 rounded-md bg-zinc-900 border border-white/10 text-zinc-500 hover:text-zinc-300 hover:border-white/20 transition-colors select-none"
         title="Version"
       >
         {import.meta.env.VITE_APP_VERSION || 'dev'}
