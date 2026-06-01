@@ -15,6 +15,16 @@ Agents Platform is a full-stack application for building, managing, and running 
 
 It ships with 20 pre-built agent personas covering infrastructure, development, security, media, and automation domains. A demo mode runs locally with docker-compose -- no SSH target needed.
 
+> ### 💡 Why SSH + a terminal instead of the Anthropic API?
+>
+> By design, the platform runs each agent by opening an **SSH session to a host that has Claude Code installed and spawning `claude -p` in a terminal** — rather than calling the Anthropic API. That host's **Claude subscription** powers the run, so executing agents consumes subscription tokens and incurs **no per-token API charges**. For a self-hosted, always-on agent fleet (scheduled audits, multi-agent runs), this keeps operating cost effectively at zero.
+>
+> **What this means in practice:**
+> - **Multi-agent runs (parallel / sequential / meeting) need no `ANTHROPIC_API_KEY`** — they dispatch purely over SSH.
+> - An API key is only used for the auxiliary LLM features that call Anthropic directly: **RAG chat, the eval judge, and the single-agent task router**.
+>
+> Prefer pay-per-token, or running headless/in-cloud where no subscription host is available? An **opt-in Anthropic API execution backend** is also supported — see [Execution backends](#execution-backends).
+
 ---
 
 ## Features
@@ -164,7 +174,7 @@ docker compose exec ollama ollama pull nomic-embed-text
 |----------|---------|-------------|
 | `PORT` | `3001` | Express server port |
 | `DATA_DIR` | `.` | Directory for `agents.db` SQLite file |
-| `ANTHROPIC_API_KEY` | _(required)_ | Anthropic API key for RAG chat and eval |
+| `ANTHROPIC_API_KEY` | _(required for RAG, eval, single-agent runs)_ | Anthropic API key for RAG chat, the eval judge, and the single-agent task router. **Not needed for multi-agent SSH dispatch.** |
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant vector store URL |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama embedding server URL |
 | `EMBED_MODEL` | `nomic-embed-text` | Ollama model for embeddings |
