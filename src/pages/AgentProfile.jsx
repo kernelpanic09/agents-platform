@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Check, Wrench, Server, Sparkles, BookOpen, Terminal, Users, ExternalLink, FileText, Database, BarChart3, Globe, Download, Package, Clipboard } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Wrench, Server, Sparkles, BookOpen, Terminal, Users, ExternalLink, FileText, Database, BarChart3, Globe, Download, Package, Clipboard, Cpu } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
 import { downloadMarkdown } from '../utils/download';
 import { copyToClipboard } from '../utils/clipboard';
@@ -22,6 +22,62 @@ const SOURCE_COLORS = {
   prometheus: '#B4451F',
   url: '#7E8C3F',
 };
+
+function InferenceProfile({ agent, onSaved }) {
+  const cfg = agent.model_config || {};
+  const [model, setModel] = useState(cfg.model || '');
+  const [temp, setTemp] = useState(cfg.temperature ?? '');
+  const [maxTok, setMaxTok] = useState(cfg.max_tokens ?? '');
+  const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/agents/${agent.id}/model-config`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: model || null, temperature: temp === '' ? null : temp, max_tokens: maxTok === '' ? null : maxTok }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Save failed');
+      onSaved(body);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1500);
+    } catch (e) { alert(e.message); } finally { setSaving(false); }
+  };
+
+  const field = 'w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-violet-500';
+  return (
+    <div className="glass rounded-2xl p-6 mb-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Cpu size={16} style={{ color: agent.color }} aria-hidden="true" />
+        <h2 className="font-semibold">Inference profile</h2>
+        {savedFlash && <span className="ml-auto inline-flex items-center gap-1 text-xs text-green-400"><Check size={12} /> saved</span>}
+      </div>
+      <p className="text-xs text-zinc-500 mb-4">
+        Per-agent model + sampling. <span className="text-zinc-400">Model</span> applies to both backends;{' '}
+        <span className="text-zinc-400">temperature / max tokens</span> apply to the API backend.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Model</label>
+          <input value={model} onChange={e => setModel(e.target.value)} placeholder="inherit (default)" className={field} />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Temperature (0–1)</label>
+          <input type="number" min="0" max="1" step="0.1" value={temp} onChange={e => setTemp(e.target.value)} placeholder="default" className={field} />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Max tokens</label>
+          <input type="number" min="1" value={maxTok} onChange={e => setMaxTok(e.target.value)} placeholder="default" className={field} />
+        </div>
+      </div>
+      <button onClick={save} disabled={saving} className="mt-3 px-4 py-2 rounded-lg text-sm bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-50">
+        {saving ? 'Saving…' : 'Save profile'}
+      </button>
+    </div>
+  );
+}
 
 export default function AgentProfile() {
   const { id } = useParams();
@@ -249,6 +305,9 @@ export default function AgentProfile() {
           </div>
         </div>
       )}
+
+      {/* Inference profile (per-agent model + sampling) */}
+      <InferenceProfile agent={agent} onSaved={setAgent} />
 
       {/* Skills / Tools / MCP — 3 columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">

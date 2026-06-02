@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { readFile } from 'fs/promises';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { getSetting } from '../settings.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROMPTS_DIR = resolve(__dirname, '../../prompts');
 
-const JSON_FIELDS = ['skills', 'tools', 'mcp_servers', 'knowledge_sources', 'example_tasks', 'related_agents'];
+const JSON_FIELDS = ['skills', 'tools', 'mcp_servers', 'knowledge_sources', 'example_tasks', 'related_agents', 'model_config'];
 const VALID_CATEGORIES = ['infrastructure', 'development', 'security', 'media', 'automation'];
 const VALID_STATUSES = ['active', 'draft', 'deprecated'];
 const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
@@ -52,6 +53,36 @@ export default function agentsRouter(db) {
     WHERE id = ?
   `);
   const stmtDeleteAgent = db.prepare('DELETE FROM agents WHERE id = ?');
+  const stmtSetModelConfig = db.prepare(`UPDATE agents SET model_config = ?, updated_at = datetime('now') WHERE id = ?`);
+
+  // PUT /api/agents/:id/model-config — set the per-agent inference profile.
+  // model applies to both backends; temperature/max_tokens apply to the API backend.
+  router.put('/:id/model-config', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid agent ID' });
+    const existing = stmtGetAgent.get(id);
+    if (!existing) return res.status(404).json({ error: 'Agent not found' });
+
+    const { model, temperature, max_tokens } = req.body || {};
+    const cfg = {};
+    if (model) {
+      const allow = String(getSetting('model_allowlist') || 'haiku,sonnet,opus').split(',').map(s => s.trim()).filter(Boolean);
+      if (!allow.includes(model)) return res.status(400).json({ error: `model must be one of: ${allow.join(', ')}` });
+      cfg.model = model;
+    }
+    if (temperature !== undefined && temperature !== null && temperature !== '') {
+      const t = Number(temperature);
+      if (!Number.isFinite(t) || t < 0 || t > 1) return res.status(400).json({ error: 'temperature must be between 0 and 1' });
+      cfg.temperature = t;
+    }
+    if (max_tokens !== undefined && max_tokens !== null && max_tokens !== '') {
+      const m = parseInt(max_tokens, 10);
+      if (!Number.isFinite(m) || m < 1 || m > 64000) return res.status(400).json({ error: 'max_tokens must be 1–64000' });
+      cfg.max_tokens = m;
+    }
+    stmtSetModelConfig.run(Object.keys(cfg).length ? JSON.stringify(cfg) : null, id);
+    res.json(parseAgent(stmtGetAgent.get(id)));
+  });
 
   // GET /api/agents - list all agents
   router.get('/', (req, res) => {

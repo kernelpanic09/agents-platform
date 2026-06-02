@@ -218,6 +218,11 @@ export function initDb() {
     db.exec(`ALTER TABLE traces ADD COLUMN source TEXT DEFAULT 'api'`);
     console.log('[db] migrated: traces.source added');
   }
+  const agentCols = new Set(db.prepare(`PRAGMA table_info(agents)`).all().map(c => c.name));
+  if (!agentCols.has('model_config')) {
+    db.exec(`ALTER TABLE agents ADD COLUMN model_config TEXT DEFAULT NULL`);
+    console.log('[db] migrated: agents.model_config added');
+  }
 
   // Seed if empty
   const count = db.prepare('SELECT COUNT(*) as count FROM agents').get();

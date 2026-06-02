@@ -201,6 +201,20 @@ export function resolveBackend(schedule = {}) {
   return v === 'api' ? 'api' : 'subscription';
 }
 
+/**
+ * Resolve an agent's inference profile, merging its model_config over run defaults.
+ * `model` applies to both backends; `temperature`/`max_tokens` apply to the API
+ * backend only (the `claude` CLI exposes neither).
+ */
+export function resolveInference(agent, runOpts = {}) {
+  let cfg = {};
+  try {
+    const raw = agent && agent.model_config;
+    cfg = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+  } catch { cfg = {}; }
+  return { model: cfg.model || runOpts.model, temperature: cfg.temperature, maxTokens: cfg.max_tokens };
+}
+
 /** Map a model alias (haiku/sonnet/opus) to a concrete Anthropic API model id. */
 export function apiModelId(model) {
   return ANTHROPIC_MODEL_MAP[model] || ANTHROPIC_MODEL_MAP[CLAUDE_MODEL] || ANTHROPIC_MODEL_MAP.sonnet;
@@ -225,7 +239,7 @@ export function buildApiResultJson({ text, usage = {}, model }) {
  * imported lazily so the server boots without ANTHROPIC_API_KEY when the default
  * subscription backend is in use. Pass `_client` to inject a stub in tests.
  */
-export async function runClaudeApi(prompt, { model = CLAUDE_MODEL, maxTokens = API_MAX_TOKENS, runId = null, agentId = null, _client = null } = {}) {
+export async function runClaudeApi(prompt, { model = CLAUDE_MODEL, maxTokens = API_MAX_TOKENS, temperature, runId = null, agentId = null, _client = null } = {}) {
   const started = Date.now();
   const apiModel = apiModelId(model);
   try {
@@ -237,6 +251,7 @@ export async function runClaudeApi(prompt, { model = CLAUDE_MODEL, maxTokens = A
     const resp = await client.messages.create({
       model: apiModel,
       max_tokens: maxTokens,
+      ...(temperature != null ? { temperature } : {}),
       messages: [{ role: 'user', content: prompt }],
     });
     const text = (resp.content || [])
