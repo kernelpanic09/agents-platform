@@ -21,6 +21,22 @@ const amber = {
   950: '#241705',
 };
 
+// Muted teal — the complementary secondary accent (links, secondary actions,
+// "running" state, a data-viz series). Desaturated + flat, not neon cyan.
+const teal = {
+  50: '#EAF4F2',
+  100: '#CFE6E2',
+  200: '#A6D2CB',
+  300: '#6FBDB3',
+  400: '#3AAEA3',
+  500: '#2FA39A',
+  600: '#23867D',
+  700: '#1B6A62',
+  800: '#16524C',
+  900: '#123E3A',
+  950: '#0B2624',
+};
+
 // Warm neutral ramp (replaces cool zinc) — neutrals tinted toward the brand hue.
 const warm = {
   50: '#F7F5F0',
@@ -48,7 +64,9 @@ export default {
         violet: amber,
         purple: amber,
         zinc: warm,
+        teal: teal,
         accent: amber,
+        secondary: teal,
         surface: {
           DEFAULT: '#131210',
           raised: '#1B1915',

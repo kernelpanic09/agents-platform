@@ -33,7 +33,7 @@ function RunStatusBadge({ status }) {
     success: { Icon: CheckCircle, color: 'text-green-400' },
     failed: { Icon: XCircle, color: 'text-red-400' },
     timeout: { Icon: XCircle, color: 'text-orange-400' },
-    running: { Icon: Loader, color: 'text-violet-400 animate-spin' },
+    running: { Icon: Loader, color: 'text-teal-400 animate-spin' },
     queued: { Icon: Clock, color: 'text-zinc-400' },
   };
   const { Icon, color } = map[status] || { Icon: Clock, color: 'text-zinc-500' };
@@ -178,7 +178,7 @@ export default function ScheduleDetailPage() {
     return (
       <div className="text-center py-16">
         <p className="text-zinc-400 mb-4">{error || 'Schedule not found.'}</p>
-        <Link to="/schedules" className="text-sm text-violet-400 hover:text-violet-300">← Back to schedules</Link>
+        <Link to="/schedules" className="text-sm text-teal-400 hover:text-teal-300">← Back to schedules</Link>
       </div>
     );
   }

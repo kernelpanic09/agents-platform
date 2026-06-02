@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Activity, DollarSign, Clock, Zap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
-const COLORS = ['#E0A82E', '#C2603C', '#7E8C3F', '#B4451F', '#9A6B3C', '#6E8B5E'];
+const COLORS = ['#E0A82E', '#2FA39A', '#C2603C', '#7E8C3F', '#B4451F', '#9A6B3C'];
 
 export default function ObservabilityPage() {
   const [costs, setCosts] = useState(null);
@@ -37,7 +37,7 @@ export default function ObservabilityPage() {
       <div className="grid grid-cols-4 gap-3 mb-6">
         {[
           { icon: DollarSign, label: 'Total Cost', value: costs ? `$${costs.total.toFixed(4)}` : '--', color: '#10B981' },
-          { icon: Zap, label: 'API Calls', value: costs?.byModel?.reduce((a, m) => a + m.calls, 0) || '--', color: '#C2603C' },
+          { icon: Zap, label: 'API Calls', value: costs?.byModel?.reduce((a, m) => a + m.calls, 0) || '--', color: '#2FA39A' },
           { icon: Clock, label: 'Avg Latency', value: latency?.stats?.[0] ? `${latency.stats[0].avg_ms}ms` : '--', color: '#F59E0B' },
           { icon: Activity, label: 'Models Used', value: costs?.byModel?.length || '--', color: '#7E8C3F' },
         ].map((card, i) => {

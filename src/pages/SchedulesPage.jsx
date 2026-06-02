@@ -26,7 +26,7 @@ function RunStatusBadge({ status }) {
     success: { icon: CheckCircle, color: 'text-green-400' },
     failed: { icon: XCircle, color: 'text-red-400' },
     timeout: { icon: XCircle, color: 'text-orange-400' },
-    running: { icon: Loader, color: 'text-violet-400 animate-spin' },
+    running: { icon: Loader, color: 'text-teal-400 animate-spin' },
     queued: { icon: Clock, color: 'text-zinc-400' },
   };
   const { icon: Icon, color } = map[status] || { icon: Clock, color: 'text-zinc-500' };
@@ -174,7 +174,7 @@ export default function SchedulesPage() {
           {filter === 'all' ? (
             <button
               onClick={() => setModalOpen(true)}
-              className="text-sm text-violet-400 hover:text-violet-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded px-1"
+              className="text-sm text-teal-400 hover:text-teal-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded px-1"
             >
               Create your first schedule →
             </button>

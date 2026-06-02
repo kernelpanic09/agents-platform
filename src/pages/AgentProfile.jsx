@@ -174,7 +174,7 @@ export default function AgentProfile() {
     return (
       <div className="text-center py-20">
         <p className="text-zinc-300 mb-2">{error || 'Agent not found'}</p>
-        <Link to="/" className="text-violet-400 hover:text-violet-300 transition-colors">Back to directory</Link>
+        <Link to="/" className="text-teal-400 hover:text-teal-300 transition-colors">Back to directory</Link>
       </div>
     );
   }

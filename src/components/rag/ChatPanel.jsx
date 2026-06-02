@@ -64,7 +64,7 @@ export default function ChatPanel({ agentId }) {
             <div className={`max-w-[80%] p-3 rounded-lg text-sm ${msg.role === 'user' ? 'bg-violet-600/20 text-violet-200' : msg.error ? 'bg-red-900/20 text-red-400' : 'text-zinc-300'}`} style={msg.role === 'assistant' && !msg.error ? { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' } : undefined}>
               <p className="whitespace-pre-wrap">{msg.content}</p>
               {msg.context && msg.context.length > 0 && (
-                <button onClick={() => setShowContext(showContext === i ? null : i)} className="flex items-center gap-1 mt-2 text-xs text-violet-400 hover:text-violet-300">
+                <button onClick={() => setShowContext(showContext === i ? null : i)} className="flex items-center gap-1 mt-2 text-xs text-teal-400 hover:text-teal-300">
                   <BookOpen size={12} />
                   {msg.context.length} sources
                 </button>
