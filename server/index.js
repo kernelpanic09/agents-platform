@@ -9,6 +9,7 @@ import { initSettings } from './settings.js';
 import settingsRouter from './routes/settings.js';
 import { initApiKeys, requireScope } from './api-keys.js';
 import keysRouter from './routes/keys.js';
+import webhooksRouter from './routes/webhooks.js';
 import agentsRouter from './routes/agents.js';
 import agencyRouter from './routes/agency.js';
 import schedulesRouter from './routes/schedules.js';
@@ -67,6 +68,7 @@ app.use('/api/observability', observabilityRouter(db));
 app.use('/api/eval', evalRouter(db));
 app.use('/api/settings', settingsRouter());
 app.use('/api/keys', keysRouter());
+app.use('/api/webhooks', webhooksRouter(db, scheduler));
 
 // MCP Server registry (static data, cache aggressively)
 app.get('/api/mcp-servers', (req, res) => {

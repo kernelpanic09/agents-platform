@@ -2,10 +2,64 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Calendar, Save, Play, Pause, Trash2, Users, FolderGit2, Cpu,
-  FileText, Clock, AlertCircle, CheckCircle, XCircle, Loader, History, RotateCw,
+  FileText, Clock, AlertCircle, CheckCircle, XCircle, Loader, History, RotateCw, Webhook,
 } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
 import CronBuilder from '../components/CronBuilder';
+
+function Webhooks({ scheduleId }) {
+  const [hooks, setHooks] = useState([]);
+  const [label, setLabel] = useState('');
+  const load = useCallback(() => {
+    fetch(`/api/webhooks?schedule_id=${scheduleId}`).then(r => r.json()).then(setHooks).catch(() => {});
+  }, [scheduleId]);
+  useEffect(() => { load(); }, [load]);
+
+  const create = async () => {
+    const res = await fetch('/api/webhooks', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schedule_id: Number(scheduleId), label }),
+    });
+    if (res.ok) { setLabel(''); load(); }
+  };
+  const del = async (hid) => { await fetch(`/api/webhooks/${hid}`, { method: 'DELETE' }); load(); };
+  const copy = (txt) => navigator.clipboard?.writeText(txt);
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+
+  return (
+    <div className="glass rounded-2xl p-6 mb-6">
+      <h2 className="text-sm font-medium text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-1">
+        <Webhook size={14} className="text-teal-400" /> Webhook triggers
+      </h2>
+      <p className="text-xs text-zinc-500 mb-4">
+        POST to a tokenized URL to fire this schedule on demand (Prometheus, GitHub Actions, n8n). The token is the credential.
+        Use <code className="text-zinc-300">{'{{payload.field}}'}</code> in the task prompt to inject values from the JSON body.
+      </p>
+      <div className="space-y-2 mb-4">
+        {hooks.length === 0 && <div className="text-sm text-zinc-600">No webhooks yet.</div>}
+        {hooks.map(h => {
+          const url = `${base}/api/webhooks/${h.token}`;
+          return (
+            <div key={h.id} className="py-2 border-b border-white/5 last:border-0">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-zinc-200">{h.label || 'webhook'}</span>
+                <span className="text-[10px] text-zinc-500 ml-auto">fired {h.trigger_count}×</span>
+                <button onClick={() => copy(url)} className="text-xs text-teal-400 hover:text-teal-300">copy URL</button>
+                <button onClick={() => del(h.id)} className="text-xs text-red-400 hover:text-red-300">delete</button>
+              </div>
+              <code className="block mt-1 text-xs text-zinc-500 font-mono break-all">{url}</code>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-2">
+        <input value={label} onChange={e => setLabel(e.target.value)} placeholder="label (e.g. prometheus-alert)"
+          className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500" />
+        <button onClick={create} className="px-3 py-2 rounded-lg text-sm bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors">Add webhook</button>
+      </div>
+    </div>
+  );
+}
 
 const MODE_INFO = {
   parallel: 'All agents run the same task simultaneously.',
@@ -398,6 +452,9 @@ export default function ScheduleDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Webhook triggers */}
+      {!isCompleted && <Webhooks scheduleId={id} />}
 
       {/* Recent runs */}
       <div className="glass rounded-2xl p-6">

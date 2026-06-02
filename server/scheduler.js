@@ -71,10 +71,11 @@ export function createScheduler(db) {
    * Fire a run for the given scheduleId — creates a runs row, queues execution.
    * Returns the new runId.
    */
-  function fireRun(scheduleId) {
+  function fireRun(scheduleId, { taskPrompt = null, force = false } = {}) {
     const schedule = db.prepare('SELECT * FROM schedules WHERE id = ?').get(scheduleId);
     if (!schedule) return null;
-    if (schedule.status === 'paused' || schedule.status === 'completed') return null;
+    if (!force && (schedule.status === 'paused' || schedule.status === 'completed')) return null;
+    if (taskPrompt) schedule.task_prompt = taskPrompt; // webhook payload override
 
     const agentIds = JSON.parse(schedule.agent_ids || '[]');
     const placeholders = agentIds.map(() => '?').join(',') || 'NULL';
