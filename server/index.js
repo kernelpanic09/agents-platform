@@ -60,7 +60,7 @@ app.get('/health', (req, res) => {
 app.use('/api/agents', agentsRouter(db));
 app.use('/api/agency', agencyRouter(db));
 app.use('/api/schedules', schedulesRouter(db, scheduler));
-app.use('/api/runs', runsRouter(db));
+app.use('/api/runs', runsRouter(db, scheduler));
 app.use('/api/apps', appsRouter());
 app.use('/api/rag', ragRouter(db));
 app.use('/api/workflows', workflowsRouter(db));
@@ -140,6 +140,10 @@ app.listen(PORT, '0.0.0.0', () => {
       console.error('Auto-sync of agency agents failed:', err.message);
     });
   }
+
+  // Recover runs orphaned by a crash and pump the durable queue. Runs regardless of
+  // the scheduler flag — manual / webhook runs drain even with cron disabled.
+  scheduler.recoverOrphans();
 
   // Scheduler: gated by feature flag. When off, API still works (you can create
   // schedules and inspect history), but cron tasks are not registered and no

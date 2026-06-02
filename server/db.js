@@ -227,6 +227,14 @@ export function initDb() {
     db.exec(`ALTER TABLE agents ADD COLUMN model_config TEXT DEFAULT NULL`);
     console.log('[db] migrated: agents.model_config added');
   }
+  // Durable job queue + retry/backoff (P3)
+  const runCols = new Set(db.prepare(`PRAGMA table_info(runs)`).all().map(c => c.name));
+  for (const [col, def] of [['attempt', 'INTEGER NOT NULL DEFAULT 0'], ['max_attempts', 'INTEGER NOT NULL DEFAULT 1'], ['next_attempt_at', 'TEXT']]) {
+    if (!runCols.has(col)) {
+      db.exec(`ALTER TABLE runs ADD COLUMN ${col} ${def}`);
+      console.log(`[db] migrated: runs.${col} added`);
+    }
+  }
 
   // Seed if empty
   const count = db.prepare('SELECT COUNT(*) as count FROM agents').get();

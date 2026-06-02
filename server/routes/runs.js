@@ -10,7 +10,7 @@ function parseRun(row) {
   };
 }
 
-export default function runsRouter(db) {
+export default function runsRouter(db, scheduler) {
   const router = Router();
 
   const stmtList = db.prepare(`
@@ -98,6 +98,17 @@ export default function runsRouter(db) {
       if (ev.type === 'done') { clearInterval(keepalive); unsub(); res.end(); }
     });
     req.on('close', () => { clearInterval(keepalive); unsub(); });
+  });
+
+  // POST /api/runs/:id/retry — re-queue a finished/dead-lettered run.
+  router.post('/:id/retry', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid run ID' });
+    const run = stmtGet.get(id);
+    if (!run) return res.status(404).json({ error: 'Run not found' });
+    if (run.status === 'running' || run.status === 'queued') return res.status(409).json({ error: 'Run is already active' });
+    if (!scheduler || !scheduler.requeue(id)) return res.status(500).json({ error: 'Could not re-queue run' });
+    res.json({ run_id: id, status: 'queued' });
   });
 
   return router;

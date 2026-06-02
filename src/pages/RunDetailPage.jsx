@@ -115,6 +115,13 @@ export default function RunDetailPage() {
     }
   };
 
+  // Retry re-queues THIS run (dead-letter recovery), vs Re-run which starts a fresh one.
+  const retry = async () => {
+    const res = await fetch(`/api/runs/${id}/retry`, { method: 'POST' });
+    if (res.ok) window.location.reload();
+    else { const b = await res.json().catch(() => ({})); alert(b.error || 'Retry failed'); }
+  };
+
   if (loading || !run) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -156,14 +163,25 @@ export default function RunDetailPage() {
               <span>Finished: {run.finished_at ? new Date(run.finished_at).toLocaleString() : '—'}</span>
             </div>
           </div>
-          <button
-            onClick={rerun}
-            disabled={rerunning}
-            className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors disabled:opacity-50"
-          >
-            <RotateCw size={14} className={rerunning ? 'animate-spin' : ''} />
-            Re-run
-          </button>
+          <div className="flex items-center gap-2">
+            {(run.status === 'failed' || run.status === 'timeout') && (
+              <button
+                onClick={retry}
+                className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-teal-600/20 border border-teal-600/30 text-teal-300 hover:bg-teal-600/30 transition-colors"
+              >
+                <RotateCw size={14} />
+                Retry
+              </button>
+            )}
+            <button
+              onClick={rerun}
+              disabled={rerunning}
+              className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors disabled:opacity-50"
+            >
+              <RotateCw size={14} className={rerunning ? 'animate-spin' : ''} />
+              Re-run
+            </button>
+          </div>
         </div>
 
         {/* Agent chips */}
