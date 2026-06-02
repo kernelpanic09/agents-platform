@@ -67,25 +67,25 @@ It ships with 20 pre-built agent personas covering infrastructure, development, 
 The UI is a dark, glassmorphism dashboard.
 
 ### Agent Directory
-![Agent Directory](docs/screenshots/home.png)
+![Agent Directory](docs/screenshots/home.png?v=2)
 
 The 20-agent roster with search, category filters, and quick-task cards.
 
 ### Schedules and Runs
-![Schedules](docs/screenshots/schedules.png)
+![Schedules](docs/screenshots/schedules.png?v=2)
 
 Ten production-grade scheduled workflows spanning all three composition modes — parallel, sequential, and meeting.
 
-![New Schedule form](docs/screenshots/schedule-form.png)
+![New Schedule form](docs/screenshots/schedule-form.png?v=2)
 
 Creating a schedule from one form: pick which agents take part, choose a composition mode (parallel / sequential / meeting), scope the run to a specific app (the agents `cd` into it and read its `CLAUDE.md`), write the task prompt, and set the cadence with the cron builder — which previews the next runs and the human-readable schedule.
 
-![Run History](docs/screenshots/runs.png)
+![Run History](docs/screenshots/runs.png?v=2)
 
 Run history with status, duration, and per-run summaries.
 
 ### LangGraph Workflows
-![Workflows](docs/screenshots/workflows.png)
+![Workflows](docs/screenshots/workflows.png?v=2)
 
 Route visualization for multi-step agent workflows.
 
