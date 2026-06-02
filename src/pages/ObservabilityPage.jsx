@@ -36,7 +36,7 @@ export default function ObservabilityPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-4 gap-3 mb-6">
         {[
-          { icon: DollarSign, label: 'Total Cost', value: costs ? `$${costs.total.toFixed(4)}` : '--', color: '#10B981' },
+          { icon: DollarSign, label: 'API Spend', value: costs ? `$${(costs.savings?.apiSpend ?? costs.total ?? 0).toFixed(4)}` : '--', color: '#10B981' },
           { icon: Zap, label: 'API Calls', value: costs?.byModel?.reduce((a, m) => a + m.calls, 0) || '--', color: '#2FA39A' },
           { icon: Clock, label: 'Avg Latency', value: latency?.stats?.[0] ? `${latency.stats[0].avg_ms}ms` : '--', color: '#F59E0B' },
           { icon: Activity, label: 'Models Used', value: costs?.byModel?.length || '--', color: '#7E8C3F' },
@@ -53,6 +53,32 @@ export default function ObservabilityPage() {
           );
         })}
       </div>
+
+      {/* Backend cost split — subscription runs are billed to the Claude subscription
+          (cost_usd is the *notional* API price = savings); API runs are real spend. */}
+      {costs?.savings && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          <div className="p-4 rounded-lg" style={{ background: 'rgba(47,163,154,0.06)', border: '1px solid rgba(47,163,154,0.25)' }}>
+            <div className="text-xs text-zinc-500 mb-1">Subscription runs (SSH)</div>
+            <div className="text-lg font-semibold" style={{ color: '#3AAEA3' }}>
+              {costs.savings.subscriptionRuns} runs · {(costs.savings.subscriptionTokens || 0).toLocaleString()} tokens
+            </div>
+            <div className="text-xs text-zinc-500 mt-1">$0 actual — billed to the Claude subscription</div>
+          </div>
+          <div className="p-4 rounded-lg" style={{ background: 'rgba(224,168,46,0.07)', border: '1px solid rgba(224,168,46,0.3)' }}>
+            <div className="text-xs text-zinc-500 mb-1">Saved vs the API</div>
+            <div className="text-2xl font-bold" style={{ color: '#E0A82E' }}>
+              ${(costs.savings.subscriptionEquivalent || 0).toFixed(2)}
+            </div>
+            <div className="text-xs text-zinc-500 mt-1">notional API price of those runs</div>
+          </div>
+          <div className="p-4 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="text-xs text-zinc-500 mb-1">Actual API spend</div>
+            <div className="text-2xl font-bold text-white">${(costs.savings.apiSpend || 0).toFixed(4)}</div>
+            <div className="text-xs text-zinc-500 mt-1">opt-in API-backend runs only</div>
+          </div>
+        </div>
+      )}
 
       {/* Charts row */}
       <div className="grid grid-cols-2 gap-4 mb-6">

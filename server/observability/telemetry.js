@@ -57,8 +57,25 @@ export function getCostSummary({ days = 30 } = {}) {
     SELECT date(created_at) as day, SUM(cost_usd) as cost, COUNT(*) as calls
     FROM traces WHERE created_at >= ? GROUP BY date(created_at) ORDER BY day
   `).all(since);
+  // Split by backend: 'ssh' (subscription — cost is *notional* / savings vs API)
+  // and 'api' (real metered spend). Drives the "savings vs API" view.
+  const bySource = _db.prepare(`
+    SELECT COALESCE(source, 'api') as source,
+      SUM(cost_usd) as cost,
+      SUM(input_tokens + output_tokens) as tokens,
+      COUNT(*) as calls
+    FROM traces WHERE created_at >= ? GROUP BY COALESCE(source, 'api')
+  `).all(since);
 
-  return { total: total.total, byModel, byAgent, daily, days };
+  const subscription = bySource.find(s => s.source === 'ssh') || { cost: 0, tokens: 0, calls: 0 };
+  const api = bySource.find(s => s.source === 'api') || { cost: 0, tokens: 0, calls: 0 };
+
+  return {
+    total: total.total, byModel, byAgent, daily, bySource, days,
+    // Subscription runs cost ~$0 in reality; their cost_usd is the notional API price = savings.
+    savings: { apiSpend: api.cost || 0, subscriptionEquivalent: subscription.cost || 0,
+               subscriptionTokens: subscription.tokens || 0, subscriptionRuns: subscription.calls || 0 },
+  };
 }
 
 export function getLatencyStats({ days = 7 } = {}) {
