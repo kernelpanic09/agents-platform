@@ -57,6 +57,8 @@ export default function RunDetailPage() {
   const navigate = useNavigate();
   const [run, setRun] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [live, setLive] = useState({}); // agentName -> { status, summary }
+  const [streaming, setStreaming] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const setTab = useCallback((newTab) => {
     const next = new URLSearchParams(searchParams);
@@ -66,20 +68,36 @@ export default function RunDetailPage() {
   const [rerunning, setRerunning] = useState(false);
 
   useEffect(() => {
+    let es = null;
     setLoading(true);
+    setLive({});
+    setStreaming(false);
     fetch(`/api/runs/${id}`)
       .then(r => r.json())
       .then(data => {
         setRun(data);
         setLoading(false);
-        // Auto-refresh if still running
+        // Live Run Theater: stream agent lifecycle events for an in-flight run.
         if (data.status === 'running' || data.status === 'queued') {
-          setTimeout(() => {
-            fetch(`/api/runs/${id}`).then(r => r.json()).then(setRun);
-          }, 3000);
+          setStreaming(true);
+          es = new EventSource(`/api/runs/${id}/stream`);
+          es.onmessage = (e) => {
+            let ev; try { ev = JSON.parse(e.data); } catch { return; }
+            if (ev.type === 'agent_start') {
+              setLive(prev => ({ ...prev, [ev.agent]: { status: 'running' } }));
+            } else if (ev.type === 'agent_done') {
+              setLive(prev => ({ ...prev, [ev.agent]: { status: ev.status, summary: ev.summary } }));
+            } else if (ev.type === 'done') {
+              if (es) es.close();
+              setStreaming(false);
+              fetch(`/api/runs/${id}`).then(r => r.json()).then(setRun).catch(() => {});
+            }
+          };
+          es.onerror = () => { if (es) es.close(); setStreaming(false); };
         }
       })
       .catch(() => setLoading(false));
+    return () => { if (es) es.close(); };
   }, [id]);
 
   const rerun = async () => {
@@ -165,6 +183,44 @@ export default function RunDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Live Run Theater — per-agent status as the run streams in */}
+      {streaming && (
+        <div className="glass rounded-2xl p-6 mb-6">
+          <h2 className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Loader size={12} className="text-teal-400 animate-spin" /> Live run
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(run.mode === 'meeting' ? ['Meeting'] : (run.agents || []).map(a => a.name)).map(name => {
+              const st = live[name] || {};
+              const status = st.status || 'queued';
+              const agent = agentByName[name];
+              const color = agent?.color || '#E0A82E';
+              const active = status === 'running';
+              return (
+                <div
+                  key={name}
+                  className="rounded-xl p-3 border transition-colors"
+                  style={{
+                    borderColor: active ? 'rgba(47,163,154,0.45)' : 'rgba(255,255,255,0.06)',
+                    background: active ? 'rgba(47,163,154,0.06)' : 'rgba(255,255,255,0.02)',
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    {agent && <AgentAvatar iconId={agent.icon_id} color={color} size={20} />}
+                    <span className="font-medium text-sm" style={{ color: `color-mix(in srgb, ${color} 80%, white)` }}>{name}</span>
+                    <span className="ml-auto flex items-center gap-1.5 text-xs">
+                      <StatusIcon status={status} size={13} />
+                      <span className="text-zinc-400 capitalize">{status}</span>
+                    </span>
+                  </div>
+                  {st.summary && <div className="text-xs text-zinc-400 mt-2 leading-relaxed">{st.summary}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Error banner */}
       {run.error_message && (

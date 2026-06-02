@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { subscribeRun, isRunLive } from '../run-stream.js';
 
 function parseRun(row) {
   if (!row) return null;
@@ -64,6 +65,39 @@ export default function runsRouter(db) {
       : [];
 
     res.json({ ...parseRun(row), agents });
+  });
+
+  // GET /api/runs/:id/stream — Server-Sent Events for the Live Run Theater.
+  // Replays a finished run from the DB; streams agent lifecycle events for a live one.
+  router.get('/:id/stream', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).end();
+    const run = stmtGet.get(id);
+    if (!run) return res.status(404).end();
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    const send = (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`);
+
+    const finished = ['success', 'failed', 'timeout'].includes(run.status);
+    if (finished && !isRunLive(id)) {
+      send({ type: 'replay', status: run.status, summary: run.summary,
+             per_agent_output: run.per_agent_output ? JSON.parse(run.per_agent_output) : null });
+      send({ type: 'done', status: run.status, summary: run.summary });
+      return res.end();
+    }
+
+    send({ type: 'status', status: run.status });
+    const keepalive = setInterval(() => res.write(': ping\n\n'), 20000);
+    const unsub = subscribeRun(id, (ev) => {
+      send(ev);
+      if (ev.type === 'done') { clearInterval(keepalive); unsub(); res.end(); }
+    });
+    req.on('close', () => { clearInterval(keepalive); unsub(); });
   });
 
   return router;
