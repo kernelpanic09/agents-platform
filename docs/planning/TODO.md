@@ -10,11 +10,10 @@
 - [x] **Opt-in Anthropic API execution backend** (P3/T9) — live v1.0.28
 - [x] **README disclaimer** on the SSH/subscription cost design
 - [x] **UI redesign** — flat dark + amber + teal, status pill badges (partial T4 "Appearance")
-- [x] **SSH run telemetry** (P1/T2) — token usage + notional cost per run, `source='ssh'`
-- [x] **Seed 10 production schedule templates** (P1/T8) — paused, on fresh DB
-- [x] **Run retention job** (P1/T9) — nightly + on-boot prune, env-tunable
+- [x] **P1 — Make It Visible & Honest** (live v1.0.29): SSH run telemetry (`source='ssh'` + notional cost), unified cost / "savings vs API" dashboard, Live Run Theater (per-agent SSE streaming), seed 10 schedule templates, run retention.
+- [x] **P2 — Make It Configurable & Governed** (live v1.0.30): Settings Hub (live DB-backed settings, env→DB override, `/settings`), per-agent inference profiles (`model_config`), tiered safety policy engine (wired the ghost `allow_writes` → read-only / controlled-write / supervised).
 
-**P1 remaining:** Live Run Theater (SSE) · Unified cost dashboard panels.
+**Next:** P3 (API-key auth + inbound webhooks + durable job queue), then P4 (prompt A/B + eval), P5 (DAG builder). Budget enforcement deferred (subscription = static cost).
 
 ## How to read this doc
 
