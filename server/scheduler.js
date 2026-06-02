@@ -3,6 +3,9 @@ import parser from 'cron-parser';
 import { executeRunViaGraph } from './workflows/runner.js';
 
 const MAX_CONCURRENT_RUNS = parseInt(process.env.MAX_CONCURRENT_RUNS || '2', 10);
+// Run retention: prune old run history so verbose transcripts don't fill the PVC.
+const RETENTION_MAX_AGE_DAYS = parseInt(process.env.RETENTION_MAX_AGE_DAYS || '90', 10);
+const RETENTION_MAX_RUNS_PER_SCHEDULE = parseInt(process.env.RETENTION_MAX_RUNS_PER_SCHEDULE || '200', 10);
 
 /**
  * Compute the next execution time for a cron expression.
@@ -140,10 +143,37 @@ export function createScheduler(db) {
     }
   }
 
+  // Prune run history: drop finished runs older than the age limit, and cap each
+  // schedule to the latest N runs. Never touches running/queued rows.
+  function pruneRuns() {
+    try {
+      const byAge = db.prepare(
+        `DELETE FROM runs WHERE status NOT IN ('running','queued') AND created_at < datetime('now', ?)`
+      ).run(`-${RETENTION_MAX_AGE_DAYS} days`);
+      const byCount = db.prepare(`
+        DELETE FROM runs WHERE id IN (
+          SELECT id FROM (
+            SELECT id, ROW_NUMBER() OVER (PARTITION BY schedule_id ORDER BY created_at DESC) AS rn FROM runs
+          ) WHERE rn > ?
+        )
+      `).run(RETENTION_MAX_RUNS_PER_SCHEDULE);
+      const removed = (byAge.changes || 0) + (byCount.changes || 0);
+      if (removed > 0) console.log(`[scheduler] retention pruned ${removed} old run(s)`);
+      return removed;
+    } catch (err) {
+      console.error('[scheduler] retention prune failed:', err.message);
+      return 0;
+    }
+  }
+
   function hydrate() {
     const rows = db.prepare(`SELECT * FROM schedules WHERE status = 'active'`).all();
     for (const row of rows) register(row);
     console.log(`[scheduler] hydrated ${rows.length} active schedule(s), concurrency=${MAX_CONCURRENT_RUNS}`);
+    // Prune once on boot, then nightly at 03:00 (separate from user schedules).
+    pruneRuns();
+    cron.schedule('0 3 * * *', pruneRuns);
+    console.log(`[scheduler] retention: keep ${RETENTION_MAX_RUNS_PER_SCHEDULE}/schedule, max age ${RETENTION_MAX_AGE_DAYS}d`);
   }
 
   function stats() {
@@ -155,5 +185,5 @@ export function createScheduler(db) {
     };
   }
 
-  return { hydrate, register, unregister, fireRun, stats };
+  return { hydrate, register, unregister, fireRun, stats, pruneRuns };
 }

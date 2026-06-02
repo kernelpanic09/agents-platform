@@ -123,8 +123,9 @@ function safeModel(m) {
  * Run one `claude -p` invocation over SSH to the remote host.
  * Returns { stdout, stderr, exitCode, timedOut }.
  */
-export function runClaudeRemote(prompt, { timeoutMs = RUN_TIMEOUT_MS, sshTarget = SSH_TARGET, sshKeyPath = SSH_KEY_PATH, model = CLAUDE_MODEL, cwd = '/tmp', maxTurns = 0 } = {}) {
+export function runClaudeRemote(prompt, { timeoutMs = RUN_TIMEOUT_MS, sshTarget = SSH_TARGET, sshKeyPath = SSH_KEY_PATH, model = CLAUDE_MODEL, cwd = '/tmp', maxTurns = 0, runId = null, agentId = null } = {}) {
   return new Promise((resolve) => {
+    const started = Date.now();
     const b64 = Buffer.from(prompt, 'utf-8').toString('base64');
     const safe = safeCwd(cwd);
     const chosenModel = safeModel(model);
@@ -166,6 +167,20 @@ export function runClaudeRemote(prompt, { timeoutMs = RUN_TIMEOUT_MS, sshTarget 
 
     child.on('close', (code) => {
       clearTimeout(timer);
+      // SSH-run telemetry (source='ssh'): record token usage + the *notional* API
+      // cost (subscription runs are ~free, but this powers the "savings vs API" view).
+      if (code === 0 && !timedOut && stdout) {
+        try {
+          const parsed = parseClaudeJson(stdout);
+          const usage = parsed.parsed?.usage || {};
+          recordTrace({
+            runId, agentId, stepName: 'ssh_dispatch', model: chosenModel,
+            inputTokens: usage.input_tokens || 0, outputTokens: usage.output_tokens || 0,
+            latencyMs: Date.now() - started, source: 'ssh',
+            inputPreview: prompt, outputPreview: parsed.result,
+          });
+        } catch { /* telemetry is best-effort; never fail a run on it */ }
+      }
       resolve({ stdout, stderr, exitCode: code, timedOut });
     });
 

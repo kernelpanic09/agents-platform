@@ -238,5 +238,37 @@ export function initDb() {
     console.log(`Seeded ${seedAgents.length} agents`);
   }
 
+  // Seed the 10 production schedule templates on a fresh DB so the app isn't
+  // empty on first boot. Seeded as 'paused' so they appear in the UI but never
+  // auto-fire without an operator explicitly resuming them.
+  const schedCount = db.prepare('SELECT COUNT(*) as count FROM schedules').get();
+  if (schedCount.count === 0) {
+    const nameToId = new Map(db.prepare('SELECT id, name FROM agents').all().map(a => [a.name, a.id]));
+    const ids = (names) => JSON.stringify(names.map(n => nameToId.get(n)).filter(Boolean));
+    const SEED_SCHEDULES = [
+      ['Nightly Infrastructure Audit', 'parallel', '0 2 * * *', ['Atlas', 'Sentinel', 'Bastion', 'Patch'], 'Walk the cluster top to bottom; flag any node over 80% CPU or with disk pressure and verify last night’s backups.'],
+      ['Security & Compliance Sweep', 'sequential', '0 3 * * 1', ['Vault', 'Cipher', 'Sentinel', 'Relay'], 'Weekly security sweep: scan for exposed secrets, TLS expiry, and unauthorized changes; report to Discord.'],
+      ['Incident Response Drill', 'meeting', '0 14 * * 5', ['Atlas', 'Mirror', 'Bastion', 'Sentinel', 'Relay'], 'Tabletop incident: a worker node fails — coordinate detection, failover, and recovery end to end.'],
+      ['Release Readiness Pipeline', 'sequential', '0 9 * * 1-5', ['Tempo', 'Dock', 'Flux', 'Proxy'], 'Pre-release gate: build integrity, image scan, manifest diff, and ingress checks before promotion.'],
+      ['Cost & Performance Review', 'parallel', '0 8 * * 1', ['Scout', 'Sentinel', 'Oracle', 'Ledger'], 'Weekly efficiency review: surface cost, latency, and optimization opportunities across the stack.'],
+      ['Backup Restore Verification Drill', 'sequential', '17 4 * * 2', ['Bastion', 'Mirror', 'Ledger', 'Relay'], 'Test-restore a Longhorn volume and a DB dump; measure RTO and verify data integrity.'],
+      ['Expiry & Capacity Forecast', 'parallel', '23 7 * * 4', ['Cipher', 'Proxy', 'Atlas', 'Sentinel'], 'Forward-looking sweep of certificate expiry, MetalLB IP-pool exhaustion, and node/disk capacity.'],
+      ['Dependency & CVE Patch Triage', 'sequential', '47 5 * * 3', ['Dock', 'Patch', 'Vault', 'Flux'], 'Triage pending OS/security updates and image CVEs; flag anything that needs a reboot.'],
+      ['Observability Coverage Audit', 'meeting', '47 13 * * 3', ['Sentinel', 'Scout', 'Relay', 'Oracle'], 'Review dashboards, alert rules, and notification routing for blind spots and noisy alerts.'],
+      ['Data Pipeline & Ingestion Health Check', 'parallel', '17 6 * * *', ['Scout', 'Oracle', 'Sentinel', 'Relay'], 'Daily verification that data pipelines, scrapers, and ingestion jobs are flowing and fresh.'],
+    ];
+    const insertSched = db.prepare(`
+      INSERT INTO schedules (name, description, agent_ids, mode, task_prompt, cron_expression, recurring, allow_writes, status, next_run_at)
+      VALUES (?, ?, ?, ?, ?, ?, 1, 0, 'paused', NULL)
+    `);
+    const insertScheds = db.transaction((rows) => {
+      for (const [name, mode, cron, agents, prompt] of rows) {
+        insertSched.run(name, prompt.slice(0, 120), ids(agents), mode, prompt, cron);
+      }
+    });
+    insertScheds(SEED_SCHEDULES);
+    console.log(`Seeded ${SEED_SCHEDULES.length} schedule templates (paused)`);
+  }
+
   return db;
 }
