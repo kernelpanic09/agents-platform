@@ -79,6 +79,74 @@ function InferenceProfile({ agent, onSaved }) {
   );
 }
 
+function SystemPromptCard({ agent, onSaved }) {
+  const [prompt, setPrompt] = useState(agent.system_prompt || '');
+  const [versions, setVersions] = useState([]);
+  const [openV, setOpenV] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [flash, setFlash] = useState(false);
+
+  const loadVersions = useCallback(() => {
+    fetch(`/api/agents/${agent.id}/prompt-versions`).then(r => r.json()).then(setVersions).catch(() => {});
+  }, [agent.id]);
+  useEffect(() => { setPrompt(agent.system_prompt || ''); }, [agent.system_prompt]);
+  useEffect(() => { loadVersions(); }, [loadVersions]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/agents/${agent.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ system_prompt: prompt }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Save failed');
+      onSaved(body); loadVersions(); setFlash(true); setTimeout(() => setFlash(false), 1500);
+    } catch (e) { alert(e.message); } finally { setSaving(false); }
+  };
+  const restore = async (vid) => {
+    const res = await fetch(`/api/agents/${agent.id}/prompt-versions/${vid}/restore`, { method: 'POST' });
+    const body = await res.json();
+    if (res.ok) { onSaved(body); setPrompt(body.system_prompt || ''); loadVersions(); }
+  };
+
+  const dirty = prompt !== (agent.system_prompt || '');
+  return (
+    <div className="glass rounded-2xl p-6 mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <FileText size={16} style={{ color: agent.color }} aria-hidden="true" />
+        <h2 className="font-semibold">System prompt</h2>
+        {flash && <span className="ml-auto inline-flex items-center gap-1 text-xs text-green-400"><Check size={12} /> saved</span>}
+      </div>
+      <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={8}
+        className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-zinc-200 font-mono leading-relaxed focus:outline-none focus:border-violet-500" />
+      <div className="flex items-center gap-3 mt-2">
+        <button onClick={save} disabled={!dirty || saving} className="px-4 py-2 rounded-lg text-sm bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          {saving ? 'Saving…' : 'Save prompt'}
+        </button>
+        <span className="text-xs text-zinc-500">{versions.length} prior version{versions.length === 1 ? '' : 's'} — snapshotted automatically on every edit</span>
+      </div>
+      {versions.length > 0 && (
+        <div className="mt-4 border-t border-white/5 pt-3 space-y-1">
+          <div className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">Version history</div>
+          {versions.map(v => (
+            <div key={v.id} className="text-sm">
+              <div className="flex items-center gap-2 py-1">
+                <span className="text-zinc-400 text-xs">{v.created_at}</span>
+                <span className="text-zinc-600 text-xs">{v.note}</span>
+                <button onClick={() => setOpenV(openV === v.id ? null : v.id)} className="ml-auto text-xs text-teal-400 hover:text-teal-300">{openV === v.id ? 'hide' : 'view'}</button>
+                <button onClick={() => restore(v.id)} className="text-xs text-violet-400 hover:text-violet-300">restore</button>
+              </div>
+              {openV === v.id && (
+                <pre className="text-[11px] text-zinc-500 whitespace-pre-wrap font-mono bg-zinc-900/50 rounded p-2 max-h-48 overflow-y-auto">{v.system_prompt}</pre>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AgentProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -308,6 +376,9 @@ export default function AgentProfile() {
 
       {/* Inference profile (per-agent model + sampling) */}
       <InferenceProfile agent={agent} onSaved={setAgent} />
+
+      {/* System prompt editor + version history */}
+      <SystemPromptCard agent={agent} onSaved={setAgent} />
 
       {/* Skills / Tools / MCP — 3 columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">

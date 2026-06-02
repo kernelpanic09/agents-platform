@@ -54,6 +54,10 @@ export default function agentsRouter(db) {
   `);
   const stmtDeleteAgent = db.prepare('DELETE FROM agents WHERE id = ?');
   const stmtSetModelConfig = db.prepare(`UPDATE agents SET model_config = ?, updated_at = datetime('now') WHERE id = ?`);
+  const stmtInsertVersion = db.prepare(`INSERT INTO prompt_versions (agent_id, system_prompt, note) VALUES (?, ?, ?)`);
+  const stmtListVersions = db.prepare(`SELECT id, note, created_at, system_prompt FROM prompt_versions WHERE agent_id = ? ORDER BY id DESC`);
+  const stmtGetVersion = db.prepare(`SELECT * FROM prompt_versions WHERE id = ? AND agent_id = ?`);
+  const stmtSetPrompt = db.prepare(`UPDATE agents SET system_prompt = ?, updated_at = datetime('now') WHERE id = ?`);
 
   // PUT /api/agents/:id/model-config — set the per-agent inference profile.
   // model applies to both backends; temperature/max_tokens apply to the API backend.
@@ -81,6 +85,27 @@ export default function agentsRouter(db) {
       cfg.max_tokens = m;
     }
     stmtSetModelConfig.run(Object.keys(cfg).length ? JSON.stringify(cfg) : null, id);
+    res.json(parseAgent(stmtGetAgent.get(id)));
+  });
+
+  // GET /api/agents/:id/prompt-versions — system-prompt history (newest first).
+  router.get('/:id/prompt-versions', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid agent ID' });
+    res.json(stmtListVersions.all(id));
+  });
+
+  // POST /api/agents/:id/prompt-versions/:vid/restore — make a past version active
+  // (snapshots the current prompt first, so a restore is itself reversible).
+  router.post('/:id/prompt-versions/:vid/restore', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const vid = parseInt(req.params.vid, 10);
+    const agent = stmtGetAgent.get(id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    const version = stmtGetVersion.get(vid, id);
+    if (!version) return res.status(404).json({ error: 'Version not found' });
+    stmtInsertVersion.run(id, agent.system_prompt || '', 'snapshot before restore');
+    stmtSetPrompt.run(version.system_prompt, id);
     res.json(parseAgent(stmtGetAgent.get(id)));
   });
 
@@ -201,6 +226,11 @@ export default function agentsRouter(db) {
     for (const [val, field] of [[skills, 'skills'], [tools, 'tools'], [mcp_servers, 'mcp_servers'], [knowledge_sources, 'knowledge_sources'], [example_tasks, 'example_tasks'], [related_agents, 'related_agents']]) {
       const err = validateArrayField(val, field);
       if (err) return res.status(400).json({ error: err });
+    }
+
+    // Snapshot the prior prompt before overwriting it, so every edit is restorable.
+    if (system_prompt !== undefined && system_prompt !== existing.system_prompt) {
+      stmtInsertVersion.run(id, existing.system_prompt || '', 'snapshot before edit');
     }
 
     try {
