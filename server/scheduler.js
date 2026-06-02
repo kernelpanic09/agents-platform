@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import parser from 'cron-parser';
 import { executeRunViaGraph } from './workflows/runner.js';
+import { getSetting } from './settings.js';
 
 const MAX_CONCURRENT_RUNS = parseInt(process.env.MAX_CONCURRENT_RUNS || '2', 10);
 // Run retention: prune old run history so verbose transcripts don't fill the PVC.
@@ -51,7 +52,7 @@ export function createScheduler(db) {
   let running = 0;
 
   function drainQueue() {
-    while (running < MAX_CONCURRENT_RUNS && queue.length > 0) {
+    while (running < getSetting('max_concurrent_runs') && queue.length > 0) {
       const job = queue.shift();
       running++;
       job().finally(() => {
@@ -149,14 +150,14 @@ export function createScheduler(db) {
     try {
       const byAge = db.prepare(
         `DELETE FROM runs WHERE status NOT IN ('running','queued') AND created_at < datetime('now', ?)`
-      ).run(`-${RETENTION_MAX_AGE_DAYS} days`);
+      ).run(`-${getSetting('retention_max_age_days')} days`);
       const byCount = db.prepare(`
         DELETE FROM runs WHERE id IN (
           SELECT id FROM (
             SELECT id, ROW_NUMBER() OVER (PARTITION BY schedule_id ORDER BY created_at DESC) AS rn FROM runs
           ) WHERE rn > ?
         )
-      `).run(RETENTION_MAX_RUNS_PER_SCHEDULE);
+      `).run(getSetting('retention_max_runs_per_schedule'));
       const removed = (byAge.changes || 0) + (byCount.changes || 0);
       if (removed > 0) console.log(`[scheduler] retention pruned ${removed} old run(s)`);
       return removed;
@@ -173,7 +174,7 @@ export function createScheduler(db) {
     // Prune once on boot, then nightly at 03:00 (separate from user schedules).
     pruneRuns();
     cron.schedule('0 3 * * *', pruneRuns);
-    console.log(`[scheduler] retention: keep ${RETENTION_MAX_RUNS_PER_SCHEDULE}/schedule, max age ${RETENTION_MAX_AGE_DAYS}d`);
+    console.log(`[scheduler] retention: keep ${getSetting('retention_max_runs_per_schedule')}/schedule, max age ${getSetting('retention_max_age_days')}d`);
   }
 
   function stats() {

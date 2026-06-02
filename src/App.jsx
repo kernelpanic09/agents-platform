@@ -16,6 +16,7 @@ const RagPlayground = lazy(() => import('./pages/RagPlayground'));
 const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'));
 const ObservabilityPage = lazy(() => import('./pages/ObservabilityPage'));
 const EvalPage = lazy(() => import('./pages/EvalPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 const SuspenseLoader = (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -74,6 +75,10 @@ export default function App() {
               <Route
                 path="/eval"
                 element={<Suspense fallback={SuspenseLoader}><EvalPage /></Suspense>}
+              />
+              <Route
+                path="/settings"
+                element={<Suspense fallback={SuspenseLoader}><SettingsPage /></Suspense>}
               />
             </Routes>
           </ErrorBoundary>

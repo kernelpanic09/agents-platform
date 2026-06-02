@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { initDb } from './db.js';
 import { initTelemetry } from './observability/telemetry.js';
+import { initSettings } from './settings.js';
+import settingsRouter from './routes/settings.js';
 import agentsRouter from './routes/agents.js';
 import agencyRouter from './routes/agency.js';
 import schedulesRouter from './routes/schedules.js';
@@ -39,6 +41,7 @@ app.use((req, res, next) => {
 // Initialize database
 const db = initDb();
 initTelemetry(db);
+initSettings(db);
 seedDemoData(db);
 
 // Create scheduler (always — API routes need the handle; feature flag only gates hydrate)
@@ -59,6 +62,7 @@ app.use('/api/rag', ragRouter(db));
 app.use('/api/workflows', workflowsRouter(db));
 app.use('/api/observability', observabilityRouter(db));
 app.use('/api/eval', evalRouter(db));
+app.use('/api/settings', settingsRouter());
 
 // MCP Server registry (static data, cache aggressively)
 app.get('/api/mcp-servers', (req, res) => {

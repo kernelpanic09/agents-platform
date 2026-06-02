@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { SAFETY_PREAMBLE } from './safety-prompt.js';
 import { recordTrace } from './observability/telemetry.js';
+import { getSetting } from './settings.js';
 
 const SSH_TARGET = process.env.SSH_TARGET || 'ubuntu@your-host';
 const SSH_KEY_PATH = process.env.SSH_KEY_PATH || '/secrets/ssh/id_ed25519';
@@ -29,7 +30,7 @@ const API_MAX_TOKENS = parseInt(process.env.API_MAX_TOKENS || '8192', 10);
  * Build the prompt for a single agent in parallel/sequential mode.
  */
 export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null) {
-  const parts = [SAFETY_PREAMBLE];
+  const parts = [getSetting('safety_preamble')];
   parts.push(`# You are ${agent.name} — ${agent.title}\n`);
   parts.push(agent.system_prompt || agent.tagline || '');
   parts.push('\n\n---\n\n# Task\n');
@@ -48,7 +49,7 @@ export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null) {
  */
 export function buildMeetingPrompt(agents, taskPrompt) {
   const names = agents.map(a => a.name).join(', ');
-  const parts = [SAFETY_PREAMBLE];
+  const parts = [getSetting('safety_preamble')];
   parts.push('# Roundtable Meeting\n\n');
   parts.push(`You are facilitating a roundtable between these personas. Voice each one in turn, staying faithful to their distinct system prompts. Run 3 full rounds with speaker order: ${names}.\n\n`);
   parts.push('## Personas\n\n');
@@ -113,17 +114,17 @@ function safeCwd(dir) {
   return '/tmp';
 }
 
-const VALID_MODELS = new Set(['haiku', 'sonnet', 'opus']);
 function safeModel(m) {
-  if (m && VALID_MODELS.has(m)) return m;
-  return CLAUDE_MODEL;
+  const allow = String(getSetting('model_allowlist') || 'haiku,sonnet,opus').split(',').map(s => s.trim()).filter(Boolean);
+  if (m && allow.includes(m)) return m;
+  return getSetting('default_model') || CLAUDE_MODEL;
 }
 
 /**
  * Run one `claude -p` invocation over SSH to the remote host.
  * Returns { stdout, stderr, exitCode, timedOut }.
  */
-export function runClaudeRemote(prompt, { timeoutMs = RUN_TIMEOUT_MS, sshTarget = SSH_TARGET, sshKeyPath = SSH_KEY_PATH, model = CLAUDE_MODEL, cwd = '/tmp', maxTurns = 0, runId = null, agentId = null } = {}) {
+export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms'), sshTarget = getSetting('ssh_target'), sshKeyPath = SSH_KEY_PATH, model = getSetting('default_model'), cwd = '/tmp', maxTurns = 0, runId = null, agentId = null } = {}) {
   return new Promise((resolve) => {
     const started = Date.now();
     const b64 = Buffer.from(prompt, 'utf-8').toString('base64');
@@ -196,7 +197,7 @@ export function runClaudeRemote(prompt, { timeoutMs = RUN_TIMEOUT_MS, sshTarget 
  * Precedence: per-schedule `execution_backend` > EXECUTION_BACKEND env > 'subscription'.
  */
 export function resolveBackend(schedule = {}) {
-  const v = String(schedule.execution_backend || EXECUTION_BACKEND || 'subscription').toLowerCase();
+  const v = String(schedule.execution_backend || getSetting('execution_backend') || 'subscription').toLowerCase();
   return v === 'api' ? 'api' : 'subscription';
 }
 
@@ -312,7 +313,7 @@ export async function executeRun({ db, runId, schedule, agents }) {
 
   const runOpts = {
     cwd: schedule.app_directory || '/tmp',
-    model: schedule.model || CLAUDE_MODEL,
+    model: schedule.model || getSetting('default_model'),
     backend: resolveBackend(schedule),
     runId,
   };

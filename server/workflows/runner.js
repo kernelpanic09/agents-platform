@@ -2,6 +2,7 @@ import { routeTask } from './router.js';
 import { buildRagGraph, buildRoutedGraph, buildSshGraph } from './graphs.js';
 import { buildAgentPrompt, buildMeetingPrompt, runClaude, resolveBackend, extractSummary, parseClaudeJson, sendDiscordNotify } from '../executor.js';
 import { emitRunEvent } from '../run-stream.js';
+import { getSetting } from '../settings.js';
 import { IS_DEMO } from '../demo.js';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
@@ -24,7 +25,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
 
   const runOpts = {
     cwd: schedule.app_directory || '/tmp',
-    model: schedule.model || CLAUDE_MODEL,
+    model: schedule.model || getSetting('default_model'),
     backend: resolveBackend(schedule),
     runId,
   };
@@ -108,7 +109,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
           emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'success', summary: extractSummary(parsed.result || stdout) });
         }
       } else {
-        const MAX_PARALLEL = parseInt(process.env.MAX_PARALLEL_PER_RUN || '3', 10);
+        const MAX_PARALLEL = getSetting('max_parallel_per_run');
         for (let i = 0; i < agents.length; i += MAX_PARALLEL) {
           const batch = agents.slice(i, i + MAX_PARALLEL);
           const batchResults = await Promise.all(batch.map(async (agent) => {

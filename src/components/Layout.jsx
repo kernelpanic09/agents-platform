@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Bot, Calendar, Home, History, Database, GitBranch, Activity, FlaskConical } from 'lucide-react';
+import { Bot, Calendar, Home, History, Database, GitBranch, Activity, FlaskConical, Settings } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Directory', icon: Home, match: (p) => p === '/' || p.startsWith('/agent/') || p.startsWith('/agency/') || p === '/compose' },
@@ -9,6 +9,7 @@ const NAV = [
   { to: '/workflows', label: 'Workflows', icon: GitBranch, match: (p) => p === '/workflows' },
   { to: '/observability', label: 'Observe', icon: Activity, match: (p) => p === '/observability' },
   { to: '/eval', label: 'Eval', icon: FlaskConical, match: (p) => p === '/eval' },
+  { to: '/settings', label: 'Settings', icon: Settings, match: (p) => p === '/settings' },
 ];
 
 export default function Layout({ children }) {
