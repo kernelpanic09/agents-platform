@@ -13,8 +13,9 @@
 - [x] **P1 — Make It Visible & Honest** (live v1.0.29): SSH run telemetry (`source='ssh'` + notional cost), unified cost / "savings vs API" dashboard, Live Run Theater (per-agent SSE streaming), seed 10 schedule templates, run retention.
 - [x] **P2 — Make It Configurable & Governed** (live v1.0.30): Settings Hub (live DB-backed settings, env→DB override, `/settings`), per-agent inference profiles (`model_config`), tiered safety policy engine (wired the ghost `allow_writes` → read-only / controlled-write / supervised).
 - [x] **P3 — Make It Trustworthy & Reactive** (live v1.0.31): API-key auth (scoped keys; locked the open `/claude` proxy), inbound webhook triggers (`POST /api/webhooks/:token` → fire a schedule, payload interpolation), durable job queue (runs table as the queue, crash recovery, retry/backoff, dead-letter, `POST /api/runs/:id/retry`).
+- [x] **P4 — Make It Smart & Self-Improving** (live v1.0.32): prompt versioning (auto-snapshot on edit + history + restore), prompt A/B testing + **promote-to-active**, configurable eval judge (judge model + pass threshold). *Deferred extras: step-level tool-call tracing, run replay, eval regression alerts.*
 
-**Next:** P4 (prompt versioning + A/B testing + configurable eval judge), then P5 (DAG pipeline builder + agent packs). Budget enforcement deferred (subscription = static cost).
+**Next:** P5 — Make It Composable & Portable (DAG pipeline builder routing multi-agent runs through LangGraph, saved crews, agent-pack YAML import/export, DB-backed MCP registry). Budget enforcement deferred (subscription = static cost).
 
 ## How to read this doc
 
