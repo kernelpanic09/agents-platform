@@ -51,10 +51,31 @@ export default function evalRouter(db) {
 
   // --- Runs ---
   router.post('/suites/:id/run', async (req, res) => {
-    const { model } = req.body;
+    const { model, judge_model, pass_threshold } = req.body;
     try {
-      const result = await runEvalSuite(db, parseInt(req.params.id, 10), model || 'haiku');
+      const result = await runEvalSuite(db, parseInt(req.params.id, 10), model || 'haiku', {
+        judgeModel: judge_model || 'haiku',
+        passThreshold: pass_threshold != null ? Number(pass_threshold) : 0.6,
+      });
       res.status(201).json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/eval/suites/:id/ab — A/B test the agent's CURRENT prompt (A) vs a
+  // candidate (B) on the same suite, so the winner can be promoted to active.
+  router.post('/suites/:id/ab', async (req, res) => {
+    const suiteId = parseInt(req.params.id, 10);
+    const { variant_prompt, model, judge_model } = req.body;
+    if (!variant_prompt || !variant_prompt.trim()) return res.status(400).json({ error: 'variant_prompt is required' });
+    const suite = db.prepare('SELECT * FROM eval_suites WHERE id = ?').get(suiteId);
+    if (!suite) return res.status(404).json({ error: 'suite not found' });
+    const opts = { judgeModel: judge_model || 'haiku' };
+    try {
+      const a = await runEvalSuite(db, suiteId, model || 'haiku', opts);
+      const b = await runEvalSuite(db, suiteId, model || 'haiku', { ...opts, systemPromptOverride: variant_prompt });
+      res.status(201).json({ agent_id: suite.agent_id, a, b });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

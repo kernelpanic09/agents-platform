@@ -8,7 +8,7 @@ const MODEL_MAP = {
   opus: 'claude-opus-4-7-20250219',
 };
 
-async function runSingleCase(agent, evalCase, model) {
+async function runSingleCase(agent, evalCase, model, systemPrompt) {
   const llm = new ChatAnthropic({
     model: MODEL_MAP[model] || MODEL_MAP.haiku,
     maxTokens: 2048,
@@ -16,7 +16,7 @@ async function runSingleCase(agent, evalCase, model) {
 
   const startTime = Date.now();
   const response = await llm.invoke([
-    new SystemMessage(agent.system_prompt || `You are ${agent.name}, ${agent.title}.`),
+    new SystemMessage(systemPrompt || agent.system_prompt || `You are ${agent.name}, ${agent.title}.`),
     new HumanMessage(evalCase.input_prompt),
   ]);
   const latencyMs = Date.now() - startTime;
@@ -38,9 +38,9 @@ async function runSingleCase(agent, evalCase, model) {
   return { output, latencyMs, tokensUsed: inputTokens + outputTokens, inputTokens, outputTokens };
 }
 
-async function judgeOutput(output, expectedBehavior, scoringCriteria) {
+async function judgeOutput(output, expectedBehavior, scoringCriteria, judgeModel = 'haiku', passThreshold = 0.6) {
   const judge = new ChatAnthropic({
-    model: MODEL_MAP.haiku,
+    model: MODEL_MAP[judgeModel] || MODEL_MAP.haiku,
     maxTokens: 512,
     temperature: 0,
   });
@@ -67,10 +67,11 @@ Respond in this exact JSON format:
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
+      const overall = parsed.overall || ((parsed.relevance + parsed.accuracy + parsed.completeness + parsed.format) / 4);
       return {
         scores: { relevance: parsed.relevance, accuracy: parsed.accuracy, completeness: parsed.completeness, format: parsed.format },
-        overall: parsed.overall || ((parsed.relevance + parsed.accuracy + parsed.completeness + parsed.format) / 4),
-        passed: parsed.passed !== false && (parsed.overall || 0) >= 0.6,
+        overall,
+        passed: overall >= passThreshold,
         reasoning: parsed.reasoning || '',
       };
     }
@@ -79,7 +80,8 @@ Respond in this exact JSON format:
   return { scores: {}, overall: 0.5, passed: false, reasoning: 'Judge failed to produce valid JSON' };
 }
 
-export async function runEvalSuite(db, suiteId, model = 'haiku') {
+export async function runEvalSuite(db, suiteId, model = 'haiku', opts = {}) {
+  const { systemPromptOverride = null, judgeModel = 'haiku', passThreshold = 0.6 } = opts;
   const suite = db.prepare('SELECT * FROM eval_suites WHERE id = ?').get(suiteId);
   if (!suite) throw new Error(`Suite ${suiteId} not found`);
 
@@ -102,8 +104,8 @@ export async function runEvalSuite(db, suiteId, model = 'haiku') {
 
   for (const evalCase of cases) {
     try {
-      const { output, latencyMs, tokensUsed, inputTokens, outputTokens } = await runSingleCase(agent, evalCase, model);
-      const judgment = await judgeOutput(output, evalCase.expected_behavior, evalCase.scoring_criteria);
+      const { output, latencyMs, tokensUsed, inputTokens, outputTokens } = await runSingleCase(agent, evalCase, model, systemPromptOverride);
+      const judgment = await judgeOutput(output, evalCase.expected_behavior, evalCase.scoring_criteria, judgeModel, passThreshold);
 
       const { calculateCost } = await import('../observability/telemetry.js');
       const caseCost = calculateCost(MODEL_MAP[model] || MODEL_MAP.haiku, inputTokens, outputTokens);

@@ -1,6 +1,66 @@
 import { useState, useEffect } from 'react';
 import { FlaskConical, Plus, Play, Loader2, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 
+function AbTest({ suite }) {
+  const [variant, setVariant] = useState('');
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null); // { a, b, agent_id }
+  const [promoted, setPromoted] = useState(false);
+
+  const run = async () => {
+    if (!variant.trim()) return;
+    setRunning(true); setResult(null); setPromoted(false);
+    try {
+      const res = await fetch(`/api/eval/suites/${suite.id}/ab`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variant_prompt: variant, model: 'haiku' }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'A/B failed');
+      setResult(body);
+    } catch (e) { alert(e.message); } finally { setRunning(false); }
+  };
+  const promote = async () => {
+    if (!result?.agent_id) { alert('This suite has no agent to promote to.'); return; }
+    const res = await fetch(`/api/agents/${result.agent_id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ system_prompt: variant }),
+    });
+    if (res.ok) setPromoted(true); else alert('Promote failed');
+  };
+
+  const bWins = result && result.b.avgScore > result.a.avgScore;
+  return (
+    <div className="rounded bg-zinc-800/30 p-3">
+      <div className="text-xs text-zinc-500 uppercase mb-2">A/B test a prompt variant</div>
+      <textarea value={variant} onChange={e => setVariant(e.target.value)} rows={4}
+        placeholder="Candidate system prompt (variant B) — scored against the agent's current prompt (A) on this suite"
+        className="w-full px-2 py-1.5 rounded bg-zinc-800 border border-zinc-700 text-xs text-zinc-200 placeholder-zinc-600 font-mono mb-2" />
+      <button onClick={run} disabled={running || !variant.trim()} className="flex items-center gap-1 px-3 py-1.5 rounded bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-xs text-white">
+        {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Run A/B
+      </button>
+      {result && (
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div className={`p-2 rounded border ${!bWins ? 'border-amber-500/40 bg-amber-500/5' : 'border-white/5 bg-zinc-800/40'}`}>
+            <div className="text-zinc-400">A · current prompt {!bWins && result.a.avgScore >= result.b.avgScore && <span className="text-amber-300">★</span>}</div>
+            <div className="text-lg font-bold text-white">{result.a.avgScore.toFixed(2)}</div>
+            <div className="text-zinc-500">{result.a.passed}/{result.a.passed + result.a.failed} passed</div>
+          </div>
+          <div className={`p-2 rounded border ${bWins ? 'border-teal-500/40 bg-teal-500/5' : 'border-white/5 bg-zinc-800/40'}`}>
+            <div className="text-zinc-400">B · variant {bWins && <span className="text-teal-300">★ winner</span>}</div>
+            <div className="text-lg font-bold text-white">{result.b.avgScore.toFixed(2)}</div>
+            <div className="text-zinc-500">{result.b.passed}/{result.b.passed + result.b.failed} passed</div>
+          </div>
+          <div className="col-span-2 pt-1">
+            {promoted
+              ? <span className="text-green-400">✓ Promoted variant B — it's now the agent's active prompt (prior prompt snapshotted to history).</span>
+              : <button onClick={promote} disabled={!result.agent_id} className="px-3 py-1.5 rounded bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-xs text-white">Promote B to active</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EvalPage() {
   const [suites, setSuites] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -144,6 +204,9 @@ export default function EvalPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* A/B test + promote-to-active */}
+                <AbTest suite={suite} />
 
                 {/* Past runs */}
                 {(runs[suite.id] || []).map(run => (
