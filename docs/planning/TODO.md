@@ -5,6 +5,17 @@
 >
 > **North star:** make every agent run *visibly alive, fully instrumented, and governed by knobs an operator can turn from the UI* — so that watching it work is the proof that real AI agents are doing real engineering work on real infrastructure.
 
+## ✅ Shipped
+
+- [x] **Opt-in Anthropic API execution backend** (P3/T9) — live v1.0.28
+- [x] **README disclaimer** on the SSH/subscription cost design
+- [x] **UI redesign** — flat dark + amber + teal, status pill badges (partial T4 "Appearance")
+- [x] **SSH run telemetry** (P1/T2) — token usage + notional cost per run, `source='ssh'`
+- [x] **Seed 10 production schedule templates** (P1/T8) — paused, on fresh DB
+- [x] **Run retention job** (P1/T9) — nightly + on-boot prune, env-tunable
+
+**P1 remaining:** Live Run Theater (SSE) · Unified cost dashboard panels.
+
 ## How to read this doc
 
 - `[ ]` checkbox per item — keep them small enough to land in one PR / one `deploy.sh` cycle.
@@ -29,10 +40,10 @@
 > The five highest impact-per-effort items, drawn directly from `prioritization.now`. **Do these first.** They eliminate the two most embarrassing gaps (invisible runs, empty cost dashboard) and make the platform's *existing* power legible before any new capability is added. All belong to **Phase P1 — Make It Visible & Honest**.
 
 - [ ] **Live Run Theater (SSE streaming)** — add `GET /api/runs/:id/stream` (native Node SSE, no new deps); refactor `runClaudeRemote` in `server/executor.js` to pipe `child.stdout` chunks to a per-`runId` `EventEmitter` instead of buffering to a string; subscribe `RunDetailPage` via `EventSource` and render per-agent streaming panels. The consensus #1 flagship. **[M · T1 · Deps: —]**
-- [ ] **SSH Run Telemetry** — extract `usage.input_tokens` / `usage.output_tokens` from the existing `claude --output-format json` response in `parseClaudeJson()`, then call the existing `recordTrace()` once per agent per run with `step_name='ssh_dispatch'`. Add a `source` column (`ssh|api`) to `traces`. Fixes the worst gap; unblocks budgets + SLOs. **[S/M · T2 · Deps: `recordTrace()` exists; additive `traces.source` migration]**
+- [x] **SSH Run Telemetry** — extract `usage.input_tokens` / `usage.output_tokens` from the existing `claude --output-format json` response in `parseClaudeJson()`, then call the existing `recordTrace()` once per agent per run with `step_name='ssh_dispatch'`. Add a `source` column (`ssh|api`) to `traces`. Fixes the worst gap; unblocks budgets + SLOs. **[S/M · T2 · Deps: `recordTrace()` exists; additive `traces.source` migration]**
 - [ ] **Unified cost dashboard panels** — on `ObservabilityPage`, add an SSH-vs-API cost split (donut/stacked bar) and per-agent / per-schedule cost attribution; expand `getCostSummary()` to include the `ssh_dispatch` step name. **[M · T2 · Deps: SSH Run Telemetry]**
-- [ ] **Seed the 10 production schedule templates** — add a seed function so a fresh deployment isn't empty (the 10 schedules currently live only in `STANDARDIZE-TODO.md` notes, created against the live instance). Mark seeded rows so re-seeds are idempotent. **[S · T8 · Deps: `schedules` table exists]**
-- [ ] **Run retention / cleanup job** — add a nightly `node-cron` task (separate from user schedules) that prunes old `runs` rows by count/age before the 1 Gi Longhorn PVC fills (verbose transcripts accumulate with no DELETE today). Surface DB file size + projected weeks-to-full on `ObservabilityPage`. **[S · T9 · Deps: `runs` table; `node-cron` already imported]**
+- [x] **Seed the 10 production schedule templates** — add a seed function so a fresh deployment isn't empty (the 10 schedules currently live only in `STANDARDIZE-TODO.md` notes, created against the live instance). Mark seeded rows so re-seeds are idempotent. **[S · T8 · Deps: `schedules` table exists]**
+- [x] **Run retention / cleanup job** — add a nightly `node-cron` task (separate from user schedules) that prunes old `runs` rows by count/age before the 1 Gi Longhorn PVC fills (verbose transcripts accumulate with no DELETE today). Surface DB file size + projected weeks-to-full on `ObservabilityPage`. **[S · T9 · Deps: `runs` table; `node-cron` already imported]**
 
 ---
 
