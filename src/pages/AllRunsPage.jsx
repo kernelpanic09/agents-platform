@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { History, CheckCircle, XCircle, Loader, Clock, ArrowLeft } from 'lucide-react';
+import { History, ArrowLeft } from 'lucide-react';
+import StatusBadge from '../components/StatusBadge';
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'All' },
@@ -10,18 +11,6 @@ const STATUS_FILTERS = [
   { id: 'running', label: 'Running' },
   { id: 'queued', label: 'Queued' },
 ];
-
-function StatusIcon({ status }) {
-  const map = {
-    success: { Icon: CheckCircle, color: 'text-green-400' },
-    failed: { Icon: XCircle, color: 'text-red-400' },
-    timeout: { Icon: XCircle, color: 'text-orange-400' },
-    running: { Icon: Loader, color: 'text-teal-400 animate-spin' },
-    queued: { Icon: Clock, color: 'text-zinc-400' },
-  };
-  const { Icon, color } = map[status] || { Icon: Clock, color: 'text-zinc-500' };
-  return <Icon size={14} className={color} />;
-}
 
 function formatDuration(ms) {
   if (!ms && ms !== 0) return '—';
@@ -142,11 +131,10 @@ export default function AllRunsPage() {
             </thead>
             <tbody>
               {runs.map(r => (
-                <tr key={r.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
+                <tr key={r.id} className={`border-b border-white/5 last:border-0 transition-colors hover:bg-teal-500/[0.04] ${r.status === 'running' || r.status === 'queued' ? 'bg-teal-500/[0.05]' : ''}`}>
                   <td className="px-4 py-3">
-                    <Link to={`/schedules/runs/${r.id}`} className="inline-flex items-center gap-1.5">
-                      <StatusIcon status={r.status} />
-                      <span className="text-xs text-zinc-300">{r.status}</span>
+                    <Link to={`/schedules/runs/${r.id}`}>
+                      <StatusBadge status={r.status} />
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-zinc-200">

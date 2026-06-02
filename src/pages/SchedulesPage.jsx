@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Plus, Play, Pause, Trash2, Clock, CheckCircle, XCircle, Loader } from 'lucide-react';
+import { Calendar, Plus, Play, Pause, Trash2 } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
 import ScheduleModal from '../components/ScheduleModal';
+import StatusBadge from '../components/StatusBadge';
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'All' },
@@ -20,22 +21,6 @@ function StatusDot({ status }) {
   return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] || 'bg-zinc-600'}`} />;
 }
 
-function RunStatusBadge({ status }) {
-  if (!status) return <span className="text-xs text-zinc-600">Never</span>;
-  const map = {
-    success: { icon: CheckCircle, color: 'text-green-400' },
-    failed: { icon: XCircle, color: 'text-red-400' },
-    timeout: { icon: XCircle, color: 'text-orange-400' },
-    running: { icon: Loader, color: 'text-teal-400 animate-spin' },
-    queued: { icon: Clock, color: 'text-zinc-400' },
-  };
-  const { icon: Icon, color } = map[status] || { icon: Clock, color: 'text-zinc-500' };
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs ${color}`}>
-      <Icon size={12} /> {status}
-    </span>
-  );
-}
 
 function formatNext(iso) {
   if (!iso) return '—';
@@ -208,7 +193,7 @@ export default function SchedulesPage() {
                 return (
                   <tr
                     key={s.id}
-                    className={`border-b border-white/5 last:border-0 hover:bg-white/[0.02] ${isCompleted ? 'opacity-60' : ''}`}
+                    className={`border-b border-white/5 last:border-0 transition-colors hover:bg-teal-500/[0.04] ${isCompleted ? 'opacity-60' : ''} ${s.last_run_status === 'running' || s.last_run_status === 'queued' ? 'bg-teal-500/[0.05]' : ''}`}
                   >
                     <td className="px-4 py-3">
                       <Link to={`/schedules/${s.id}`} className="flex items-center gap-2 text-zinc-200 hover:text-white">
@@ -245,9 +230,9 @@ export default function SchedulesPage() {
                     <td className="px-4 py-3">
                       {s.last_run_id ? (
                         <Link to={`/schedules/runs/${s.last_run_id}`} className="hover:underline">
-                          <RunStatusBadge status={s.last_run_status} />
+                          <StatusBadge status={s.last_run_status} />
                         </Link>
-                      ) : <RunStatusBadge status={null} />}
+                      ) : <StatusBadge status={null} />}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
