@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { SAFETY_PREAMBLE } from './safety-prompt.js';
+import { policyToPrompt, resolveTier } from './safety-prompt.js';
 import { recordTrace } from './observability/telemetry.js';
 import { getSetting } from './settings.js';
 
@@ -29,8 +29,8 @@ const API_MAX_TOKENS = parseInt(process.env.API_MAX_TOKENS || '8192', 10);
 /**
  * Build the prompt for a single agent in parallel/sequential mode.
  */
-export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null) {
-  const parts = [getSetting('safety_preamble')];
+export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null, tier = 'read_only') {
+  const parts = [policyToPrompt(tier, getSetting('safety_preamble'))];
   parts.push(`# You are ${agent.name} — ${agent.title}\n`);
   parts.push(agent.system_prompt || agent.tagline || '');
   parts.push('\n\n---\n\n# Task\n');
@@ -47,9 +47,9 @@ export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null) {
 /**
  * Build the coordinator prompt for meeting mode (single call, voices all agents).
  */
-export function buildMeetingPrompt(agents, taskPrompt) {
+export function buildMeetingPrompt(agents, taskPrompt, tier = 'read_only') {
   const names = agents.map(a => a.name).join(', ');
-  const parts = [getSetting('safety_preamble')];
+  const parts = [policyToPrompt(tier, getSetting('safety_preamble'))];
   parts.push('# Roundtable Meeting\n\n');
   parts.push(`You are facilitating a roundtable between these personas. Voice each one in turn, staying faithful to their distinct system prompts. Run 3 full rounds with speaker order: ${names}.\n\n`);
   parts.push('## Personas\n\n');
@@ -326,6 +326,7 @@ export async function executeRun({ db, runId, schedule, agents }) {
   let errorMessage = null;
   let exitCode = 0;
 
+  const tier = resolveTier(schedule);
   const runOpts = {
     cwd: schedule.app_directory || '/tmp',
     model: schedule.model || getSetting('default_model'),
@@ -335,7 +336,7 @@ export async function executeRun({ db, runId, schedule, agents }) {
 
   try {
     if (schedule.mode === 'meeting') {
-      const prompt = buildMeetingPrompt(agents, schedule.task_prompt);
+      const prompt = buildMeetingPrompt(agents, schedule.task_prompt, tier);
       const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, runOpts);
       if (timedOut) {
         status = 'timeout';
@@ -352,7 +353,7 @@ export async function executeRun({ db, runId, schedule, agents }) {
       const outputs = {};
       let prior = null;
       for (const agent of agents) {
-        const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior);
+        const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior, tier);
         const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, agentId: agent.id });
         if (timedOut) {
           status = 'timeout';
@@ -384,7 +385,7 @@ export async function executeRun({ db, runId, schedule, agents }) {
       for (let i = 0; i < agents.length; i += MAX_PARALLEL_PER_RUN) {
         const batch = agents.slice(i, i + MAX_PARALLEL_PER_RUN);
         const batchResults = await Promise.all(batch.map(async (agent) => {
-          const prompt = buildAgentPrompt(agent, schedule.task_prompt);
+          const prompt = buildAgentPrompt(agent, schedule.task_prompt, null, tier);
           const result = await runClaude(prompt, { ...runOpts, agentId: agent.id });
           return { agent, ...result };
         }));

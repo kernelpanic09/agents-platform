@@ -129,6 +129,15 @@ export default function SchedulePreview({ schedule = {}, agents = [] }) {
             </div>
           </div>
         </div>
+
+        <div>
+          <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1">Safety tier</div>
+          <div className="text-sm text-white">
+            {schedule.safety_tier === 'controlled_write' ? 'Controlled-write — scoped, reversible writes'
+              : schedule.safety_tier === 'supervised' ? 'Supervised — broad changes under oversight'
+              : 'Read-only — investigate, no writes'}
+          </div>
+        </div>
       </div>
 
       {/* Agents */}

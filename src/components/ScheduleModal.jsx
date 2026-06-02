@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Users, Sparkles, AlertCircle, FolderGit2, Cpu, ArrowLeft, Eye } from 'lucide-react';
+import { X, Calendar, Users, Sparkles, AlertCircle, FolderGit2, Cpu, ArrowLeft, Eye, Shield } from 'lucide-react';
 import cronstrue from 'cronstrue';
 import AgentAvatar from './AgentAvatar';
 import CronBuilder from './CronBuilder';
@@ -35,6 +35,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
   const [appDirectory, setAppDirectory] = useState('');
   const [model, setModel] = useState('');
   const [executionBackend, setExecutionBackend] = useState('');
+  const [safetyTier, setSafetyTier] = useState('read_only');
   const [appsList, setAppsList] = useState([]);
   const [previewStep, setPreviewStep] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -142,6 +143,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
           app_directory: appDirectory || null,
           model: model || null,
           execution_backend: executionBackend || null,
+          safety_tier: safetyTier,
         }),
       });
       const body = await res.json();
@@ -157,6 +159,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
       setAppDirectory('');
       setModel('');
       setExecutionBackend('');
+      setSafetyTier('read_only');
       setPreviewStep(false);
       onClose?.();
     } catch (err) {
@@ -202,6 +205,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
               app_directory: appDirectory || null,
               model: model || null,
               execution_backend: executionBackend || null,
+              safety_tier: safetyTier,
             }}
             agents={selectedAgents}
           />
@@ -388,6 +392,40 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
                 : executionBackend === 'subscription'
                 ? 'Runs dispatch over SSH to `claude -p` — uses subscription tokens, no API cost.'
                 : 'Inherit the platform default (the EXECUTION_BACKEND env var).'}
+            </p>
+          </div>
+
+          {/* Safety tier */}
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
+              <Shield size={12} className="inline mr-1" />
+              Safety tier
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'read_only', label: 'Read-only', hint: 'investigate only' },
+                { id: 'controlled_write', label: 'Controlled', hint: 'scoped writes' },
+                { id: 'supervised', label: 'Supervised', hint: 'broad + oversight' },
+              ].map(({ id, label, hint }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setSafetyTier(id)}
+                  className={`text-left px-3 py-2 rounded-lg transition-colors border ${
+                    safetyTier === id ? 'bg-violet-600/20 border-violet-500 text-white' : 'bg-zinc-900 border-white/10 text-zinc-300 hover:bg-zinc-800'
+                  }`}
+                >
+                  <div className="text-sm font-medium">{label}</div>
+                  <div className="text-[10px] text-zinc-500">{hint}</div>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-zinc-500 mt-2">
+              {safetyTier === 'read_only'
+                ? 'Agents may only investigate — no writes (the default guardrail).'
+                : safetyTier === 'controlled_write'
+                ? 'Scoped, reversible writes allowed; destructive commands stay blocked.'
+                : 'Broad changes under human oversight; mass/irreversible destruction stays blocked.'}
             </p>
           </div>
 

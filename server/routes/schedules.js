@@ -5,6 +5,7 @@ const VALID_MODES = ['parallel', 'sequential', 'meeting'];
 const VALID_STATUSES = ['active', 'paused', 'completed'];
 const VALID_MODELS = ['haiku', 'sonnet', 'opus'];
 const VALID_BACKENDS = ['subscription', 'api'];
+const VALID_TIERS = ['read_only', 'controlled_write', 'supervised'];
 // App directories must live under this prefix — no traversal, no absolute paths
 // outside the homelab apps tree.
 const APPS_ROOT = process.env.APPS_ROOT || '/home/ubuntu/apps';
@@ -28,10 +29,12 @@ function serializeInput(body) {
     task_prompt: body.task_prompt,
     cron_expression: body.cron_expression,
     recurring: body.recurring === false ? 0 : 1,
-    allow_writes: body.allow_writes ? 1 : 0,
+    // allow_writes stays in sync with the tier (read_only -> 0, else 1) for back-compat.
+    allow_writes: body.safety_tier ? (body.safety_tier !== 'read_only' ? 1 : 0) : (body.allow_writes ? 1 : 0),
     app_directory: body.app_directory || null,
     model: body.model || null,
     execution_backend: body.execution_backend || null,
+    safety_tier: body.safety_tier || null,
   };
 }
 
@@ -61,6 +64,9 @@ function validateInput(body, { partial = false } = {}) {
   }
   if (body.execution_backend !== undefined && body.execution_backend !== null && body.execution_backend !== '' && !VALID_BACKENDS.includes(body.execution_backend)) {
     errors.push(`execution_backend must be one of: ${VALID_BACKENDS.join(', ')}`);
+  }
+  if (body.safety_tier !== undefined && body.safety_tier !== null && body.safety_tier !== '' && !VALID_TIERS.includes(body.safety_tier)) {
+    errors.push(`safety_tier must be one of: ${VALID_TIERS.join(', ')}`);
   }
   if (body.app_directory !== undefined && body.app_directory !== null && body.app_directory !== '') {
     const appDirRe = new RegExp(`^${APPS_ROOT.replace(/[/]/g, '\\/')}/[a-zA-Z0-9_-]+$`);
@@ -100,14 +106,14 @@ export default function schedulesRouter(db, scheduler) {
     FROM runs WHERE schedule_id = ? ORDER BY created_at DESC LIMIT 10
   `);
   const stmtInsert = db.prepare(`
-    INSERT INTO schedules (name, description, agent_ids, mode, task_prompt, cron_expression, recurring, allow_writes, app_directory, model, execution_backend, status, next_run_at)
-    VALUES (@name, @description, @agent_ids, @mode, @task_prompt, @cron_expression, @recurring, @allow_writes, @app_directory, @model, @execution_backend, 'active', @next_run_at)
+    INSERT INTO schedules (name, description, agent_ids, mode, task_prompt, cron_expression, recurring, allow_writes, app_directory, model, execution_backend, safety_tier, status, next_run_at)
+    VALUES (@name, @description, @agent_ids, @mode, @task_prompt, @cron_expression, @recurring, @allow_writes, @app_directory, @model, @execution_backend, @safety_tier, 'active', @next_run_at)
   `);
   const stmtUpdate = db.prepare(`
     UPDATE schedules SET
       name = ?, description = ?, agent_ids = ?, mode = ?, task_prompt = ?,
       cron_expression = ?, recurring = ?, allow_writes = ?,
-      app_directory = ?, model = ?, execution_backend = ?,
+      app_directory = ?, model = ?, execution_backend = ?, safety_tier = ?,
       status = ?, next_run_at = ?,
       updated_at = datetime('now')
     WHERE id = ?
@@ -173,6 +179,7 @@ export default function schedulesRouter(db, scheduler) {
       if (agentErr) return res.status(400).json({ error: agentErr });
     }
 
+    const newTier = req.body.safety_tier !== undefined ? (req.body.safety_tier || null) : existing.safety_tier;
     const merged = {
       name: req.body.name ?? existing.name,
       description: req.body.description ?? existing.description,
@@ -181,10 +188,11 @@ export default function schedulesRouter(db, scheduler) {
       task_prompt: req.body.task_prompt ?? existing.task_prompt,
       cron_expression: req.body.cron_expression ?? existing.cron_expression,
       recurring: req.body.recurring !== undefined ? (req.body.recurring ? 1 : 0) : existing.recurring,
-      allow_writes: req.body.allow_writes !== undefined ? (req.body.allow_writes ? 1 : 0) : existing.allow_writes,
+      allow_writes: newTier ? (newTier !== 'read_only' ? 1 : 0) : (req.body.allow_writes !== undefined ? (req.body.allow_writes ? 1 : 0) : existing.allow_writes),
       app_directory: req.body.app_directory !== undefined ? (req.body.app_directory || null) : existing.app_directory,
       model: req.body.model !== undefined ? (req.body.model || null) : existing.model,
       execution_backend: req.body.execution_backend !== undefined ? (req.body.execution_backend || null) : existing.execution_backend,
+      safety_tier: newTier,
       status: req.body.status ?? existing.status,
     };
     const next = nextRunAt(merged.cron_expression);
@@ -192,7 +200,7 @@ export default function schedulesRouter(db, scheduler) {
     stmtUpdate.run(
       merged.name, merged.description, merged.agent_ids, merged.mode, merged.task_prompt,
       merged.cron_expression, merged.recurring, merged.allow_writes,
-      merged.app_directory, merged.model, merged.execution_backend,
+      merged.app_directory, merged.model, merged.execution_backend, merged.safety_tier,
       merged.status, next,
       id,
     );

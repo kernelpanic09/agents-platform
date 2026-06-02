@@ -213,6 +213,10 @@ export function initDb() {
     db.exec(`ALTER TABLE schedules ADD COLUMN execution_backend TEXT DEFAULT NULL`);
     console.log('[db] migrated: schedules.execution_backend added');
   }
+  if (!schedCols.has('safety_tier')) {
+    db.exec(`ALTER TABLE schedules ADD COLUMN safety_tier TEXT DEFAULT NULL`);
+    console.log('[db] migrated: schedules.safety_tier added');
+  }
   const traceCols = new Set(db.prepare(`PRAGMA table_info(traces)`).all().map(c => c.name));
   if (!traceCols.has('source')) {
     db.exec(`ALTER TABLE traces ADD COLUMN source TEXT DEFAULT 'api'`);

@@ -3,6 +3,7 @@ import { buildRagGraph, buildRoutedGraph, buildSshGraph } from './graphs.js';
 import { buildAgentPrompt, buildMeetingPrompt, runClaude, resolveBackend, resolveInference, extractSummary, parseClaudeJson, sendDiscordNotify } from '../executor.js';
 import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
+import { resolveTier } from '../safety-prompt.js';
 import { IS_DEMO } from '../demo.js';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
@@ -23,6 +24,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   let exitCode = 0;
   let steps = [];
 
+  const tier = resolveTier(schedule);
   const runOpts = {
     cwd: schedule.app_directory || '/tmp',
     model: schedule.model || getSetting('default_model'),
@@ -53,7 +55,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
         steps.push({ name: 'demo_stub', status: 'done' });
       }
     } else if (schedule.mode === 'meeting') {
-      const prompt = buildMeetingPrompt(agents, schedule.task_prompt);
+      const prompt = buildMeetingPrompt(agents, schedule.task_prompt, tier);
       emitRunEvent(runId, { type: 'agent_start', agent: 'Meeting' });
       const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, runOpts);
       if (timedOut) { status = 'timeout'; errorMessage = 'Run exceeded timeout'; }
@@ -100,7 +102,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
         let prior = null;
         for (const agent of agents) {
           emitRunEvent(runId, { type: 'agent_start', agent: agent.name });
-          const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior);
+          const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior, tier);
           const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id });
           if (timedOut) { status = 'timeout'; errorMessage = `Agent ${agent.name} timed out`; outputs[agent.name] = '[timed out]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'timeout' }); break; }
           if (ec !== 0) { status = 'failed'; errorMessage = `Agent ${agent.name} exited ${ec}`; outputs[agent.name] = '[failed]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'failed' }); break; }
@@ -115,7 +117,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
           const batch = agents.slice(i, i + MAX_PARALLEL);
           const batchResults = await Promise.all(batch.map(async (agent) => {
             emitRunEvent(runId, { type: 'agent_start', agent: agent.name });
-            const prompt = buildAgentPrompt(agent, schedule.task_prompt);
+            const prompt = buildAgentPrompt(agent, schedule.task_prompt, null, tier);
             const result = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id });
             const ok = !result.timedOut && result.exitCode === 0;
             emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: result.timedOut ? 'timeout' : ok ? 'success' : 'failed', summary: ok ? extractSummary(parseClaudeJson(result.stdout).result || '') : undefined });
