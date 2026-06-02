@@ -1,5 +1,75 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Settings as SettingsIcon, RotateCcw, Check } from 'lucide-react';
+import { Settings as SettingsIcon, RotateCcw, Check, Key } from 'lucide-react';
+
+const ALL_SCOPES = ['read', 'trigger', 'write', 'admin'];
+
+function ApiKeys() {
+  const [keys, setKeys] = useState([]);
+  const [name, setName] = useState('');
+  const [scopes, setScopes] = useState(['trigger']);
+  const [created, setCreated] = useState(null);
+
+  const load = () => fetch('/api/keys').then(r => r.json()).then(setKeys).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const toggle = (s) => setScopes(p => (p.includes(s) ? p.filter(x => x !== s) : [...p, s]));
+  const create = async () => {
+    const res = await fetch('/api/keys', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name || 'key', scopes }),
+    });
+    const body = await res.json();
+    if (!res.ok) { alert(body.error || 'Create failed'); return; }
+    setCreated(body); setName(''); load();
+  };
+  const revoke = async (id) => { await fetch(`/api/keys/${id}`, { method: 'DELETE' }); load(); };
+
+  return (
+    <div className="glass rounded-2xl p-6 mb-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Key size={16} className="text-violet-400" />
+        <h2 className="font-semibold">API keys</h2>
+      </div>
+      <p className="text-xs text-zinc-500 mb-4">
+        For the <code className="text-zinc-300">/claude</code> proxy and inbound webhooks. The full key is shown once on creation — copy it then.
+      </p>
+
+      {created && (
+        <div className="mb-4 p-3 rounded-lg border border-violet-500/30 bg-violet-500/10">
+          <div className="text-xs text-zinc-400 mb-1">New key <span className="text-amber-400">(copy now — it won't be shown again)</span>:</div>
+          <code className="text-sm text-violet-200 font-mono break-all">{created.key}</code>
+        </div>
+      )}
+
+      <div className="space-y-1 mb-4">
+        {keys.length === 0 && <div className="text-sm text-zinc-600">No keys yet.</div>}
+        {keys.map(k => (
+          <div key={k.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0 text-sm">
+            <span className={k.revoked ? 'text-zinc-600 line-through' : 'text-zinc-200'}>{k.name}</span>
+            <code className="text-xs text-zinc-500">{k.key_prefix}…</code>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30">{k.scopes.join(', ')}</span>
+            <span className="text-[10px] text-zinc-600 ml-auto">{k.last_used_at ? 'used' : 'never used'}</span>
+            {!k.revoked && <button onClick={() => revoke(k.id)} className="text-xs text-red-400 hover:text-red-300">revoke</button>}
+            {k.revoked && <span className="text-xs text-zinc-600">revoked</span>}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="key name"
+          className="bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500" />
+        <div className="flex items-center gap-2">
+          {ALL_SCOPES.map(s => (
+            <label key={s} className="flex items-center gap-1 text-xs text-zinc-300 cursor-pointer">
+              <input type="checkbox" checked={scopes.includes(s)} onChange={() => toggle(s)} className="accent-violet-500" /> {s}
+            </label>
+          ))}
+        </div>
+        <button onClick={create} className="px-3 py-2 rounded-lg text-sm bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors">Create key</button>
+      </div>
+    </div>
+  );
+}
 
 const SOURCE_BADGE = {
   db: { label: 'override', cls: 'bg-violet-500/15 text-violet-300 border-violet-500/30' },
@@ -100,6 +170,8 @@ export default function SettingsPage() {
           {items.map(s => <SettingRow key={s.key} s={s} onSave={onSave} onReset={onReset} />)}
         </div>
       ))}
+
+      <ApiKeys />
     </div>
   );
 }

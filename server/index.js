@@ -7,6 +7,8 @@ import { initDb } from './db.js';
 import { initTelemetry } from './observability/telemetry.js';
 import { initSettings } from './settings.js';
 import settingsRouter from './routes/settings.js';
+import { initApiKeys, requireScope } from './api-keys.js';
+import keysRouter from './routes/keys.js';
 import agentsRouter from './routes/agents.js';
 import agencyRouter from './routes/agency.js';
 import schedulesRouter from './routes/schedules.js';
@@ -42,6 +44,7 @@ app.use((req, res, next) => {
 const db = initDb();
 initTelemetry(db);
 initSettings(db);
+initApiKeys(db);
 seedDemoData(db);
 
 // Create scheduler (always — API routes need the handle; feature flag only gates hydrate)
@@ -63,6 +66,7 @@ app.use('/api/workflows', workflowsRouter(db));
 app.use('/api/observability', observabilityRouter(db));
 app.use('/api/eval', evalRouter(db));
 app.use('/api/settings', settingsRouter());
+app.use('/api/keys', keysRouter());
 
 // MCP Server registry (static data, cache aggressively)
 app.get('/api/mcp-servers', (req, res) => {
@@ -82,11 +86,9 @@ app.post('/api/mcp-servers/config', (req, res) => {
   res.json({ mcpServers: generateMcpConfig(ids) });
 });
 
-// Claude proxy endpoint for external apps
-app.post('/claude', async (req, res) => {
-  if (process.env.ENABLE_SCHEDULER !== 'true') {
-    return res.status(403).json({ error: 'Claude proxy disabled. Set ENABLE_SCHEDULER=true to enable.' });
-  }
+// Claude proxy endpoint for external apps — requires a scoped API key
+// (was previously open to any caller when ENABLE_SCHEDULER=true).
+app.post('/claude', requireScope('trigger', 'write'), async (req, res) => {
   const { prompt, model, max_turns, timeout } = req.body;
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'prompt is required' });
