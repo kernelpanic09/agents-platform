@@ -5,15 +5,17 @@
 [![Release](https://img.shields.io/github/v/release/kernelpanic09/agents-platform?include_prereleases&sort=semver)](https://github.com/kernelpanic09/agents-platform/releases)
 [![Last commit](https://img.shields.io/github/last-commit/kernelpanic09/agents-platform)](https://github.com/kernelpanic09/agents-platform/commits)
 
-An AI agent orchestration platform with RAG, LangGraph workflows, observability, and evaluation. Manage a roster of agent personas, run them against real infrastructure via SSH, and measure their performance over time.
+An AI agent orchestration platform: a roster of agent personas dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop — with full cost/latency observability and platform SLOs.
 
 ---
 
 ## What is this
 
-Agents Platform is a full-stack application for building, managing, and running AI agents. Each agent has a persona, system prompt, skill set, tool inventory, and knowledge sources. The platform dispatches agents via SSH to a remote Claude Code session, tracks every run with cost and latency telemetry, and surfaces the results through a dark glassmorphism dashboard.
+Agents Platform is a full-stack application for building, managing, and running AI agents. Each agent has a persona, system prompt, skill set, tool inventory, knowledge sources, and its own inference profile (model, temperature, max tokens). The platform dispatches agents via SSH to a remote Claude Code session (or the Anthropic API), routes multi-agent work through LangGraph — including user-built DAG pipelines with conditional branching — tracks every run with token/cost/latency telemetry, and streams run progress live into the UI.
 
-It ships with 20 pre-built agent personas covering infrastructure, development, security, media, and automation domains. A demo mode runs locally with docker-compose -- no SSH target needed.
+It ships with 20 pre-built agent personas covering infrastructure, development, security, media, and automation domains, plus 10 production-grade schedule templates. A demo mode runs locally with docker-compose -- no SSH target needed.
+
+The platform was built in five planned phases (visibility → configurability → trust → self-improvement → composability); the full roadmap, meeting notes, and prioritization live in [`docs/planning/`](docs/planning/).
 
 > ### 💡 Why SSH + a terminal instead of the Anthropic API?
 >
@@ -31,40 +33,64 @@ It ships with 20 pre-built agent personas covering infrastructure, development, 
 
 ### 1. Agent Roster
 - 20 persona definitions: name, title, tagline, system prompt, skills, tools, MCP servers, knowledge sources, example tasks, and related agents
-- Full CRUD via REST API and in-app forms
-- Category filtering (infrastructure, development, security, media, automation)
-- Per-agent accent color and SVG avatar (20 unique illustrations)
+- Full CRUD via REST API and in-app forms; per-agent accent color and SVG avatar (20 unique illustrations)
+- **Per-agent inference profiles** — model, temperature, and max-tokens overrides applied at execution time
+- **Prompt version history** — every system-prompt edit auto-snapshots the prior version; view, diff, and restore from the agent profile
+- **Adopt from catalog** — copy any read-only agency-catalog agent into the runnable roster with one click (provenance-tagged)
 
-### 2. SSH Dispatch and Multi-agent Modes
-- Runs `claude -p "<prompt>"` on a remote host over SSH
+### 2. Orchestration: Modes, Pipelines, and Crews
+- Runs `claude -p "<prompt>"` on a remote host over SSH (or via the Anthropic API — see [Execution backends](#execution-backends))
 - Three composition modes: parallel (fan-out, aggregate), sequential (pipeline), meeting (structured debate)
-- Cron scheduling with configurable concurrency limits
-- Per-run Discord webhook notifications (success and failure)
-- Run history with stdout capture and status tracking
+- **DAG Pipeline Builder** — compose agents into a directed graph with **conditional edges evaluated against the prior agent's output** (e.g. `output.includes('CRITICAL')`, sandboxed in a `vm` context). Pipelines compile to LangGraph at run time and stream per-node status live onto the graph
+- **Saved Crews** — named, reusable agent teams with a topology (fan / chain / round-table), one-click run or schedule, plus suggested crews derived from the related-agents graph
+- Cron scheduling with configurable concurrency; per-run Discord notifications
 
-### 3. RAG Engine
+### 3. Live Run Theater
+- Every run streams **per-agent lifecycle events over SSE**: watch agents start, work, and report in real time instead of waiting on a spinner
+- Pipeline runs overlay live node status (pending / running / success / failed) directly on the DAG
+- Finished runs replay from history; mid-run viewers catch up from a buffered event stream
+
+### 4. Trust & Governance
+- **Tiered safety policy engine** — every run executes under an explicit tier (`read_only` / `controlled_write` / `supervised`) that shapes the safety preamble injected into each agent prompt
+- **Scoped API keys** (`read` → `trigger` → `write` → `admin`, SHA-256 hashed) protecting the external trigger surface
+- **Inbound webhooks** — `POST /api/webhooks/:token` fires a schedule from Prometheus alerts, git pushes, or n8n flows, with payload interpolation into the task prompt
+- **Durable job queue** — the runs table is the queue: crash recovery re-queues orphaned runs on boot, failed runs retry with exponential backoff, exhausted runs land in a dead-letter state with one-click re-queue
+
+### 5. Settings Hub
+- Live platform settings with clear precedence: **DB override → env seed → code default** — tune concurrency, timeouts, models, retention, safety preamble, and SLO targets at runtime with no redeploy
+- Model allowlist editable live (add a new Claude model without shipping code)
+
+### 6. RAG Engine
 - Vector store: Qdrant with Ollama embeddings (`nomic-embed-text`)
 - Pluggable document loaders: Markdown files, YAML, Terraform, URLs, transcripts
 - RAG Playground UI: load documents, query the index, inspect retrieved chunks
 - LangChain retrieval chain with Anthropic Claude for generation
 
-### 4. LangGraph Workflows
+### 7. LangGraph Workflows
 - Task router: Claude Haiku classifies each request (RAG query / workflow / SSH dispatch)
-- State machine graphs built with `@langchain/langgraph`
+- State machine graphs built with `@langchain/langgraph` — including **dynamic graphs compiled from user-built pipelines**
 - Built-in tools: `kubectl` runner, file reader, RAG search
-- Workflows UI for inspecting graph state and step-by-step traces
 
-### 5. Observability and Evaluation
-- Telemetry middleware captures every API call: model, tokens in/out, latency, cost
-- Cost calculator using Claude model pricing tiers
-- Recharts dashboard: daily cost trends, model distribution, latency percentiles, recent trace table
-- Eval suite: write test cases, run LLM-as-judge scoring, compare models, detect regressions
+### 8. Observability, SLOs, and Cost
+- Telemetry for **both backends**: API calls and SSH runs (token usage parsed from `claude`'s JSON output) — every run lands in the cost dashboard
+- **"Savings vs API" view** — subscription runs cost $0 but are metered at notional API prices, so the dashboard shows exactly what the SSH design saves
+- **Platform SLOs** — success rate, p95 run latency, and daily cost vs live-configurable targets, with green/warning/breach status and Discord alerting on transition into breach
+- Recharts dashboard: daily cost trends, model distribution, latency percentiles, recent traces
+
+### 9. Evaluation & Self-Improvement
+- Eval suites with LLM-as-judge scoring; judge model and pass threshold are configurable per run
+- **Prompt A/B testing** — score the agent's current prompt (A) against a candidate (B) on the same suite, side by side
+- **Promote-to-active** — one click sets the winning prompt live (auto-snapshotting the old one), closing the measure → improve → ship loop
+
+### 10. Portability: Agent Packs & MCP Registry
+- **Agent-pack YAML import/export** — versioned packs of agents, crews, schedules, and pipelines; cross-references travel by agent *name*, so a pack moves cleanly between deployments
+- **DB-backed MCP registry** — the integration catalog is editable at runtime (add/edit/delete servers, no redeploy), with per-server env-var validation badges and a remote connection test
 
 ---
 
 ## Screenshots
 
-The UI is a dark, glassmorphism dashboard.
+The UI is a flat dark dashboard with an amber primary and teal secondary accent (Hanken Grotesk type, status-pill badges — deliberately not the default AI-glassmorphism look).
 
 ### Agent Directory
 ![Agent Directory](docs/screenshots/home.png?v=2)
@@ -96,29 +122,41 @@ Route visualization for multi-step agent workflows.
 ```
 Browser (React 18 + Vite)
     |
-    |  REST / JSON
+    |  REST / JSON + SSE (live run streams)
     v
 Express.js (port 3001)
-    |-- /api/agents       Agent CRUD
-    |-- /api/schedules    Cron scheduler
-    |-- /api/runs         Run history
-    |-- /api/rag          RAG ingest + query
-    |-- /api/workflows    LangGraph execution
-    |-- /api/observability Telemetry traces
-    |-- /api/eval         Evaluation suites
+    |-- /api/agents        Agent CRUD, inference profiles, prompt versions
+    |-- /api/schedules     Cron scheduler
+    |-- /api/runs          Run history + SSE stream + retry
+    |-- /api/pipelines     DAG builder, validation, runs + SSE node overlay
+    |-- /api/crews         Saved agent teams (run / schedule)
+    |-- /api/packs         YAML import/export of agents/crews/schedules/pipelines
+    |-- /api/webhooks      Inbound event triggers (token-authenticated)
+    |-- /api/keys          Scoped API keys
+    |-- /api/settings      Live settings hub (DB > env > default)
+    |-- /api/mcp-servers   DB-backed MCP registry + env/connection checks
+    |-- /api/rag           RAG ingest + query
+    |-- /api/workflows     LangGraph routing
+    |-- /api/observability Telemetry, costs, SLOs
+    |-- /api/eval          Evaluation suites + A/B testing
     |
     |-- SQLite (better-sqlite3, WAL)
-    |       agents, runs, schedules, traces, eval results
+    |       agents, schedules, runs (durable queue), pipelines, crews,
+    |       traces, eval suites/runs, prompt_versions, api_keys,
+    |       platform_settings, mcp_servers
     |
     |-- LangGraph
     |       Task router (Haiku) --> RAG chain | Workflow graph | SSH dispatch
+    |       Pipeline DAGs compiled at run time (conditional edges, fan-out)
     |
     |-- Qdrant (vector store)
     |       Ollama embeddings (nomic-embed-text)
     |
-    |-- SSH --> Remote Host
-                claude -p "<system prompt + task>"
-                (Claude Code CLI, parallel / sequential / meeting modes)
+    |-- SSH --> Remote Host                      (default backend)
+    |           claude -p "<safety tier + system prompt + task>"
+    |           (Claude Code CLI, parallel / sequential / meeting / pipeline)
+    |
+    |-- Anthropic API                            (opt-in backend)
 ```
 
 ---
@@ -170,6 +208,8 @@ docker compose exec ollama ollama pull nomic-embed-text
 
 ## Configuration
 
+> **Live settings:** most operational knobs (concurrency, timeouts, default model, model allowlist, retries, retention, safety preamble, SLO targets, SSH target, execution backend) are editable at runtime in **Settings** — stored as DB overrides with precedence **DB > env > default**. The env vars below seed the defaults; secrets (API keys, SSH keys, webhook tokens) stay in the environment only.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3001` | Express server port |
@@ -184,8 +224,13 @@ docker compose exec ollama ollama pull nomic-embed-text
 | `EXECUTION_BACKEND` | `subscription` | Default run backend: `subscription` (SSH + `claude -p`, no API cost) or `api` (Anthropic API) |
 | `API_MAX_TOKENS` | `8192` | Max output tokens per turn when the `api` backend is used |
 | `ENABLE_SCHEDULER` | `false` | Enable cron scheduler and manual `/run` endpoint |
-| `MAX_CONCURRENT_RUNS` | `2` | Max parallel SSH dispatch jobs |
-| `DISCORD_WEBHOOK_URL` | _(optional)_ | Discord webhook for run notifications |
+| `MAX_CONCURRENT_RUNS` | `2` | Max runs executing at once (queue concurrency) |
+| `MAX_PARALLEL_PER_RUN` | `3` | Max agents dispatched simultaneously within one parallel run |
+| `RUN_TIMEOUT_MS` | `900000` | Per-dispatch timeout (15 min) |
+| `RUN_MAX_RETRIES` | `0` | Auto-retries (with backoff) for failed/timed-out runs; exhausted runs dead-letter |
+| `RETENTION_MAX_RUNS_PER_SCHEDULE` | `200` | Keep newest N runs per schedule (pruned nightly) |
+| `RETENTION_MAX_AGE_DAYS` | `90` | Drop finished runs older than this |
+| `DISCORD_WEBHOOK_URL` | _(optional)_ | Discord webhook for run + SLO-breach notifications |
 | `DEMO_MODE` | `false` | Seed demo data and disable SSH |
 
 ---
@@ -222,7 +267,9 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | Vector Store | Qdrant |
 | Embeddings | Ollama (nomic-embed-text) |
 | SSH Dispatch | Native Node.js `child_process` over SSH |
-| Scheduling | node-cron |
+| Live Streaming | Server-Sent Events (native, no extra deps) |
+| Scheduling | node-cron + durable SQLite-backed run queue |
+| Portability | `yaml` (agent packs) |
 | Schema Validation | Zod |
 | Containerization | Docker, Docker Compose |
 
@@ -236,20 +283,54 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `GET` | `/api/agents` | List all agents (excludes system_prompt) |
 | `GET` | `/api/agents/:id` | Full agent detail with system_prompt |
 | `POST` | `/api/agents` | Create agent |
-| `PUT` | `/api/agents/:id` | Update agent (partial) |
+| `PUT` | `/api/agents/:id` | Update agent (auto-snapshots prompt edits) |
+| `PUT` | `/api/agents/:id/model-config` | Set inference profile (model / temperature / max_tokens) |
+| `GET` | `/api/agents/:id/prompt-versions` | Prompt version history |
+| `POST` | `/api/agents/:id/prompt-versions/:vid/restore` | Restore a prior prompt version |
 | `DELETE` | `/api/agents/:id` | Delete agent |
-| `GET` | `/api/agents/:id/prompt` | Raw prompt file content (dev only) |
+| `POST` | `/api/agency/:id/adopt` | Copy a catalog agent into the runnable roster |
 
 ### Schedules and Runs
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/schedules` | List all schedules |
-| `POST` | `/api/schedules` | Create schedule (cron + agent + task) |
+| `POST` | `/api/schedules` | Create schedule (cron + agents + mode + safety tier + backend) |
 | `PUT` | `/api/schedules/:id` | Update schedule |
 | `DELETE` | `/api/schedules/:id` | Delete schedule |
 | `POST` | `/api/schedules/:id/run` | Trigger schedule manually |
 | `GET` | `/api/runs` | List all runs with status |
 | `GET` | `/api/runs/:id` | Run detail with stdout |
+| `GET` | `/api/runs/:id/stream` | **SSE** — live per-agent events (replays finished runs) |
+| `POST` | `/api/runs/:id/retry` | Re-queue a finished / dead-lettered run |
+
+### Pipelines (DAG)
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET/POST` | `/api/pipelines` | List / create pipelines |
+| `GET/PUT/DELETE` | `/api/pipelines/:id` | Read / update (cycle-checked) / delete |
+| `POST` | `/api/pipelines/:id/validate` | Validate a graph without saving |
+| `POST` | `/api/pipelines/:id/run` | Execute through LangGraph (fire-and-forget) |
+| `GET` | `/api/pipelines/:id/runs` | Pipeline run history |
+| `GET` | `/api/pipelines/runs/:runId` | Run detail with per-node states |
+| `GET` | `/api/pipelines/runs/:runId/stream` | **SSE** — live node-status overlay |
+
+### Crews
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET/POST` | `/api/crews` | List / create crews (fan / chain / round-table) |
+| `GET` | `/api/crews/suggested` | Crews derived from the related-agents graph |
+| `PUT/DELETE` | `/api/crews/:id` | Update / delete |
+| `POST` | `/api/crews/:id/run` | One-click run (one-shot schedule through the queue) |
+
+### Packs, Settings, Keys, Webhooks
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/packs/export?include=…` | Versioned YAML export (agents, crews, schedules, pipelines) |
+| `POST` | `/api/packs/import` | Import a pack (name-resolved, clash-safe, warns on unknowns) |
+| `GET/PUT/DELETE` | `/api/settings[/:key]` | Live settings (DB override > env > default) |
+| `GET/POST/DELETE` | `/api/keys[/:id]` | Scoped API keys (read / trigger / write / admin) |
+| `GET/POST/DELETE` | `/api/webhooks[/:id]` | Inbound webhook endpoints |
+| `POST` | `/api/webhooks/:token` | Fire a schedule from an external event |
 
 ### RAG
 | Method | Path | Description |
@@ -270,9 +351,10 @@ Both backends return identical run records, and `api`-backend runs are metered i
 ### Observability
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/observability/traces` | Recent telemetry traces |
-| `GET` | `/api/observability/costs` | Aggregated cost stats (by model, agent, day) |
+| `GET` | `/api/observability/traces` | Recent telemetry traces (API + SSH sources) |
+| `GET` | `/api/observability/costs` | Aggregated cost stats incl. "savings vs API" |
 | `GET` | `/api/observability/latency` | Latency percentiles per model |
+| `GET` | `/api/observability/slo` | Platform SLOs vs targets (ok / warn / breach) |
 
 ### Evaluation
 | Method | Path | Description |
@@ -280,15 +362,18 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `GET` | `/api/eval/suites` | List eval suites with case/run counts |
 | `POST` | `/api/eval/suites` | Create eval suite |
 | `POST` | `/api/eval/suites/:id/cases` | Add test case to suite |
-| `POST` | `/api/eval/suites/:id/run` | Run eval suite against a model |
+| `POST` | `/api/eval/suites/:id/run` | Run suite (configurable judge model + pass threshold) |
+| `POST` | `/api/eval/suites/:id/ab` | **A/B test** current prompt vs a candidate |
 | `GET` | `/api/eval/runs` | List eval runs |
 | `GET` | `/api/eval/runs/:id/results` | Per-case results with judge scores |
 
-### MCP Registry
+### MCP Registry (DB-backed)
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/mcp-servers` | List available MCP servers |
-| `GET` | `/api/mcp-servers/:id` | MCP server detail |
+| `GET/POST` | `/api/mcp-servers` | List / add servers at runtime (no redeploy) |
+| `GET/PUT/DELETE` | `/api/mcp-servers/:id` | Read / edit / remove a server |
+| `GET` | `/api/mcp-servers/:id/check` | Env-var validation (required vs missing) |
+| `POST` | `/api/mcp-servers/:id/test` | Remote connection test over SSH |
 | `POST` | `/api/mcp-servers/config` | Generate MCP config JSON for selected servers |
 
 ### Health
@@ -308,66 +393,61 @@ agents-platform/
 │
 ├── server/
 │   ├── index.js                # Express app, middleware, route wiring
-│   ├── db.js                   # SQLite schema init, migration
+│   ├── db.js                   # SQLite schema init, idempotent migrations
 │   ├── seed.js                 # 20 agent persona definitions
 │   ├── demo.js                 # Demo mode seed data
-│   ├── executor.js             # SSH dispatch, parallel/sequential/meeting modes
-│   ├── scheduler.js            # node-cron scheduler, Discord notifications
-│   ├── agency-sync.js          # Agent sync utilities
-│   ├── mcp-registry.js         # MCP server definitions
-│   ├── safety-prompt.js        # Prepended safety context for SSH runs
-│   ├── rag/
-│   │   ├── qdrant.js           # Qdrant client wrapper
-│   │   ├── embeddings.js       # Ollama embedding client
-│   │   ├── splitter.js         # Recursive text chunker
-│   │   ├── ingest.js           # Document ingestion pipeline
-│   │   ├── chat.js             # RAG search and chat
-│   │   └── loaders/            # Pluggable loaders (md, yaml, tf, url, transcript)
+│   ├── executor.js             # Backend-agnostic dispatch (SSH + API), prompts, telemetry
+│   ├── scheduler.js            # Durable run queue, cron, retries, retention, SLO monitor
+│   ├── run-stream.js           # SSE event registry w/ replay buffer (Live Run Theater)
+│   ├── settings.js             # Live settings: DB override > env seed > default
+│   ├── api-keys.js             # Scoped API keys (SHA-256, scope middleware)
+│   ├── packs.js                # Agent-pack YAML export/import + agency adoption
+│   ├── agency-sync.js          # Agency catalog sync from GitHub
+│   ├── mcp-registry.js         # DB-backed MCP registry + env/connection checks
+│   ├── safety-prompt.js        # Tiered safety policy engine (read_only/controlled/supervised)
+│   ├── rag/                    # Qdrant client, embeddings, chunker, ingest, chat, loaders
 │   ├── workflows/
 │   │   ├── state.js            # LangGraph state schema
 │   │   ├── tools.js            # LangChain tools (kubectl, file read, RAG)
 │   │   ├── router.js           # Task classifier (Haiku)
-│   │   ├── graphs.js           # LangGraph graph definitions
-│   │   └── runner.js           # Graph execution engine
+│   │   ├── graphs.js           # Static LangGraph graph definitions
+│   │   ├── pipeline.js         # Dynamic DAG -> LangGraph compiler, sandboxed conditions
+│   │   └── runner.js           # Graph execution engine (all modes)
 │   ├── eval/
-│   │   └── runner.js           # Eval suite runner with LLM judge
+│   │   └── runner.js           # Eval runner: LLM judge, prompt override, A/B support
 │   ├── observability/
-│   │   └── telemetry.js        # Cost calculator, trace middleware
-│   └── routes/
-│       ├── agents.js           # Agent CRUD
-│       ├── agency.js           # Agency operations
-│       ├── schedules.js        # Cron schedule management
-│       ├── runs.js             # Run history
-│       ├── apps.js             # App discovery
-│       ├── rag.js              # RAG ingest and query
-│       ├── workflows.js        # LangGraph workflow execution
-│       ├── observability.js    # Telemetry and dashboard
-│       └── eval.js             # Evaluation suites and LLM judge
+│   │   ├── telemetry.js        # Cost calculator, trace recording (api + ssh sources)
+│   │   └── slo.js              # SLO computation + breach alerting
+│   └── routes/                 # agents, agency, schedules, runs, pipelines, crews,
+│                               # packs, settings, keys, webhooks, mcp, apps, rag,
+│                               # workflows, observability, eval
 │
 ├── src/
 │   ├── App.jsx                 # React Router setup, lazy page loading
-│   ├── index.css               # Tailwind + glassmorphism custom styles
+│   ├── index.css               # Tailwind + flat-dark theme (amber/teal accents)
 │   ├── components/
-│   │   ├── Layout.jsx          # Nav header with 7 sections
-│   │   ├── AgentCard.jsx
-│   │   ├── AgentAvatar.jsx     # 20 unique inline SVG avatars
+│   │   ├── Layout.jsx          # Nav header
+│   │   ├── AgentCard.jsx / AgentAvatar.jsx   # 20 unique inline SVG avatars
+│   │   ├── StatusBadge.jsx     # Run-status pills
+│   │   ├── PipelineGraph.jsx   # SVG DAG renderer w/ live node status
+│   │   ├── ScheduleModal.jsx / CronBuilder.jsx
 │   │   ├── rag/                # IngestPanel, SearchPanel, ChatPanel, SourceList
 │   │   └── workflows/          # GraphView (SVG route visualization)
-│   └── pages/
-│       ├── Home.jsx            # Agent grid, search, category filter
-│       ├── AgentProfile.jsx    # Full agent detail, activate modal
-│       ├── AgencyAgentProfile.jsx
-│       ├── ComposePage.jsx     # Multi-agent composition
-│       ├── SchedulesPage.jsx
-│       ├── ScheduleDetailPage.jsx
-│       ├── AllRunsPage.jsx
-│       ├── RunDetailPage.jsx
-│       ├── RagPlayground.jsx   # RAG document loader + query UI
-│       ├── WorkflowsPage.jsx
-│       ├── ObservabilityPage.jsx
-│       └── EvalPage.jsx
+│   └── pages/                  # Home, AgentProfile (inference profile + prompt history),
+│                               # Compose, Schedules, ScheduleDetail, Runs, RunDetail (live SSE),
+│                               # Pipelines, PipelineDetail (builder + live overlay), Crews,
+│                               # RagPlayground, Workflows, Observability (SLOs), Eval (A/B),
+│                               # Settings (hub + keys + MCP registry + packs)
 │
-└── test/
+└── test/                       # 32 unit tests (node:test):
+    ├── pipeline.test.js        #   DAG validation, sandboxed conditions, LangGraph routing
+    ├── packs.test.js           #   YAML pack round-trip, agency adoption
+    ├── mcp.test.js             #   registry seed/CRUD/env checks
+    ├── slo.test.js             #   SLO status bands + roll-up
+    ├── api-keys.test.js        #   scopes, hashing, middleware
+    ├── safety-tier.test.js     #   tier resolution + policy prompts
+    ├── execution-backend.test.js
+    ├── run-stream.test.js
     └── rag-smoke.js            # RAG integration smoke test
 ```
 
@@ -388,6 +468,9 @@ npm run dev
 # Build for production
 npm run build
 npm start
+
+# Run the unit test suite (32 tests, no API key or SSH needed)
+npm test
 ```
 
 The Vite dev server proxies `/api` to `:3001`, so both servers run simultaneously without CORS issues.
