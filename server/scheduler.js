@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import parser from 'cron-parser';
 import { executeRunViaGraph } from './workflows/runner.js';
 import { getSetting } from './settings.js';
+import { checkSloBreach } from './observability/slo.js';
 
 const MAX_CONCURRENT_RUNS = parseInt(process.env.MAX_CONCURRENT_RUNS || '2', 10);
 // Run retention: prune old run history so verbose transcripts don't fill the PVC.
@@ -224,6 +225,9 @@ export function createScheduler(db) {
     pruneRuns();
     cron.schedule('0 3 * * *', pruneRuns);
     console.log(`[scheduler] retention: keep ${getSetting('retention_max_runs_per_schedule')}/schedule, max age ${getSetting('retention_max_age_days')}d`);
+    // SLO breach monitor: evaluate now, then every 15 minutes (alerts on transition to breach).
+    checkSloBreach(db);
+    cron.schedule('*/15 * * * *', () => checkSloBreach(db));
     drain(); // pick up any runs queued while the scheduler was off
   }
 

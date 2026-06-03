@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { getTraces, getCostSummary, getLatencyStats } from '../observability/telemetry.js';
+import { computeSlo } from '../observability/slo.js';
 
 export default function observabilityRouter(db) {
   const router = Router();
+
+  router.get('/slo', (req, res) => {
+    res.json(computeSlo(db));
+  });
 
   router.get('/traces', (req, res) => {
     const { run_id, agent_id, limit, offset } = req.query;

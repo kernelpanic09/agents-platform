@@ -17,6 +17,10 @@ export const SETTINGS_SCHEMA = [
 
   { key: 'safety_preamble', group: 'Safety', label: 'Safety preamble', type: 'text', default: SAFETY_PREAMBLE, editableLive: true, description: 'Prepended to every agent prompt. Edit to tighten or loosen the global guardrail.' },
 
+  { key: 'slo_success_rate', group: 'SLO', label: 'Target success rate', type: 'number', default: 0.95, editableLive: true, description: 'Min fraction of runs that should succeed (0–1), over a 7-day window.' },
+  { key: 'slo_p95_latency_ms', group: 'SLO', label: 'Target p95 latency (ms)', type: 'number', default: 600000, editableLive: true, description: 'p95 run duration should stay under this (7-day window).' },
+  { key: 'slo_daily_cost_usd', group: 'SLO', label: 'Target daily cost (USD)', type: 'number', default: 5, editableLive: true, description: 'Notional 24h spend ceiling (subscription runs are ~free; this tracks API-equivalent cost).' },
+
   { key: 'retention_max_runs_per_schedule', group: 'Retention', label: 'Keep N runs / schedule', type: 'number', env: 'RETENTION_MAX_RUNS_PER_SCHEDULE', default: 200, editableLive: true, description: 'Older runs beyond this per schedule are pruned nightly.' },
   { key: 'retention_max_age_days', group: 'Retention', label: 'Max run age (days)', type: 'number', env: 'RETENTION_MAX_AGE_DAYS', default: 90, editableLive: true, description: 'Finished runs older than this are pruned nightly.' },
 ];

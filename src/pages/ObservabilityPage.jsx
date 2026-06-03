@@ -1,13 +1,62 @@
 import { useState, useEffect } from 'react';
-import { Activity, DollarSign, Clock, Zap } from 'lucide-react';
+import { Activity, DollarSign, Clock, Zap, ShieldCheck, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#E0A82E', '#2FA39A', '#C2603C', '#7E8C3F', '#B4451F', '#9A6B3C'];
+
+const SLO_STYLE = {
+  ok:     { dot: '#22c55e', cls: 'border-green-500/25 bg-green-500/5', text: 'text-green-300', label: 'on target' },
+  warn:   { dot: '#f59e0b', cls: 'border-amber-500/25 bg-amber-500/5', text: 'text-amber-300', label: 'warning' },
+  breach: { dot: '#ef4444', cls: 'border-red-500/25 bg-red-500/5', text: 'text-red-300', label: 'breach' },
+  nodata: { dot: '#71717a', cls: 'border-white/10 bg-black/20', text: 'text-zinc-500', label: 'no data' },
+};
+
+function SloPanel({ slo }) {
+  if (!slo) return null;
+  const m = slo.metrics, t = slo.targets, s = slo.status;
+  const ov = SLO_STYLE[slo.overall] || SLO_STYLE.nodata;
+  const pct = (v) => v == null ? '—' : `${(v * 100).toFixed(0)}%`;
+  const secs = (v) => v == null ? '—' : `${Math.round(v / 1000)}s`;
+  const usd = (v) => v == null ? '—' : `$${Number(v).toFixed(2)}`;
+  const cards = [
+    { key: 'successRate', label: 'Success rate', value: pct(m.successRate), target: `≥ ${pct(t.successRate)}`, st: s.successRate },
+    { key: 'p95LatencyMs', label: 'p95 latency', value: secs(m.p95LatencyMs), target: `≤ ${secs(t.p95LatencyMs)}`, st: s.p95LatencyMs },
+    { key: 'dailyCostUsd', label: 'Daily cost', value: usd(m.dailyCostUsd), target: `≤ ${usd(t.dailyCostUsd)}`, st: s.dailyCostUsd },
+  ];
+  return (
+    <div className="mb-6 p-4 rounded-xl glass border border-white/10">
+      <div className="flex items-center gap-2 mb-3">
+        <ShieldCheck size={16} className="text-violet-400" />
+        <h2 className="text-sm font-medium text-zinc-200">Platform SLOs</h2>
+        <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${ov.cls} ${ov.text}`}>
+          <span className="w-2 h-2 rounded-full" style={{ background: ov.dot }} /> {ov.label}
+        </span>
+        <span className="text-xs text-zinc-600 ml-auto">{slo.sample_size} runs · {slo.window_days}d window</span>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {cards.map(c => {
+          const st = SLO_STYLE[c.st] || SLO_STYLE.nodata;
+          return (
+            <div key={c.key} className={`p-3 rounded-lg border ${st.cls}`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-zinc-500">{c.label}</span>
+                <span className="w-2 h-2 rounded-full" style={{ background: st.dot }} title={st.label} />
+              </div>
+              <div className={`text-xl font-semibold ${st.text}`}>{c.value}</div>
+              <div className="flex items-center gap-1 text-[11px] text-zinc-600 mt-0.5"><Target size={10} /> target {c.target}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function ObservabilityPage() {
   const [costs, setCosts] = useState(null);
   const [latency, setLatency] = useState(null);
   const [traces, setTraces] = useState([]);
+  const [slo, setSlo] = useState(null);
   const [days, setDays] = useState(30);
 
   useEffect(() => {
@@ -15,6 +64,10 @@ export default function ObservabilityPage() {
     fetch(`/api/observability/latency?days=${days}`).then(r => r.json()).then(setLatency).catch(() => {});
     fetch('/api/observability/traces?limit=20').then(r => r.json()).then(setTraces).catch(() => {});
   }, [days]);
+
+  useEffect(() => {
+    fetch('/api/observability/slo').then(r => r.json()).then(setSlo).catch(() => {});
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
@@ -32,6 +85,9 @@ export default function ObservabilityPage() {
           <option value={90}>90 days</option>
         </select>
       </div>
+
+      {/* Platform SLOs */}
+      <SloPanel slo={slo} />
 
       {/* Summary cards */}
       <div className="grid grid-cols-4 gap-3 mb-6">
