@@ -22,7 +22,8 @@ import crewsRouter from './routes/crews.js';
 import packsRouter from './routes/packs.js';
 import observabilityRouter from './routes/observability.js';
 import evalRouter from './routes/eval.js';
-import { getMcpList, getMcpById, generateMcpConfig } from './mcp-registry.js';
+import { initMcpRegistry } from './mcp-registry.js';
+import mcpRouter from './routes/mcp.js';
 import { syncAgencyAgents } from './agency-sync.js';
 import { createScheduler } from './scheduler.js';
 import { runClaudeRemote } from './executor.js';
@@ -49,6 +50,7 @@ const db = initDb();
 initTelemetry(db);
 initSettings(db);
 initApiKeys(db);
+initMcpRegistry(db);
 seedDemoData(db);
 
 // Create scheduler (always — API routes need the handle; feature flag only gates hydrate)
@@ -76,23 +78,8 @@ app.use('/api/settings', settingsRouter());
 app.use('/api/keys', keysRouter());
 app.use('/api/webhooks', webhooksRouter(db, scheduler));
 
-// MCP Server registry (static data, cache aggressively)
-app.get('/api/mcp-servers', (req, res) => {
-  res.set('Cache-Control', 'public, max-age=3600');
-  res.json(getMcpList());
-});
-
-app.get('/api/mcp-servers/:id', (req, res) => {
-  const mcp = getMcpById(req.params.id);
-  if (!mcp) return res.status(404).json({ error: 'MCP server not found' });
-  res.json(mcp);
-});
-
-app.post('/api/mcp-servers/config', (req, res) => {
-  const { ids } = req.body;
-  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
-  res.json({ mcpServers: generateMcpConfig(ids) });
-});
+// MCP Server registry (DB-backed: editable at runtime, env + connection checks)
+app.use('/api/mcp-servers', mcpRouter(db));
 
 // Claude proxy endpoint for external apps — requires a scoped API key
 // (was previously open to any caller when ENABLE_SCHEDULER=true).

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Settings as SettingsIcon, RotateCcw, Check, Key, Download, Upload, Package } from 'lucide-react';
+import { Settings as SettingsIcon, RotateCcw, Check, Key, Download, Upload, Package, Plug, Plus, Trash2, Wifi, Loader2 } from 'lucide-react';
 
 const ALL_SCOPES = ['read', 'trigger', 'write', 'admin'];
 
@@ -225,6 +225,104 @@ function SettingRow({ s, onSave, onReset }) {
   );
 }
 
+// DB-backed MCP registry: editable at runtime, with env validation + connection test.
+function McpRegistry() {
+  const [servers, setServers] = useState([]);
+  const [checks, setChecks] = useState({});
+  const [tests, setTests] = useState({});
+  const [testing, setTesting] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ id: '', name: '', command: 'npx', package: '', env: '' });
+
+  const load = useCallback(async () => {
+    const list = await fetch('/api/mcp-servers').then(r => r.json());
+    setServers(list);
+    const entries = await Promise.all(list.map(s => fetch(`/api/mcp-servers/${s.id}/check`).then(r => r.json()).then(c => [s.id, c]).catch(() => [s.id, null])));
+    setChecks(Object.fromEntries(entries));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const test = async (id) => {
+    setTesting(id);
+    try {
+      const r = await fetch(`/api/mcp-servers/${id}/test`, { method: 'POST' }).then(r => r.json());
+      setTests(t => ({ ...t, [id]: r }));
+    } finally { setTesting(null); }
+  };
+
+  const add = async () => {
+    if (!form.id.trim() || !form.name.trim()) return;
+    const envKeys = form.env.split(',').map(s => s.trim()).filter(Boolean);
+    const config = {
+      command: form.command || 'npx',
+      args: form.package ? ['-y', form.package] : [],
+      ...(envKeys.length ? { env: Object.fromEntries(envKeys.map(k => [k, `<set ${k}>`])) } : {}),
+    };
+    const res = await fetch('/api/mcp-servers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: form.id, name: form.name, package: form.package, category: 'other', config }),
+    });
+    if (res.ok) { setForm({ id: '', name: '', command: 'npx', package: '', env: '' }); setAdding(false); load(); }
+    else alert((await res.json()).error || 'Failed to add');
+  };
+
+  const remove = async (id) => {
+    if (!confirm(`Delete MCP server "${id}"?`)) return;
+    await fetch(`/api/mcp-servers/${id}`, { method: 'DELETE' });
+    load();
+  };
+
+  return (
+    <div className="glass rounded-2xl p-6 mb-5">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Plug size={16} className="text-violet-400" />
+          <h2 className="font-semibold">MCP registry <span className="text-zinc-500 font-normal text-sm">({servers.length})</span></h2>
+        </div>
+        <button onClick={() => setAdding(a => !a)} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-violet-600/20 text-violet-200 hover:bg-violet-600/30 transition-colors"><Plus size={12} /> Add</button>
+      </div>
+      <p className="text-sm text-zinc-500 mb-4">Editable at runtime — no redeploy. Each server shows whether its required env vars are present, plus a remote connection test.</p>
+
+      {adding && (
+        <div className="mb-4 p-3 rounded-lg border border-violet-500/30 bg-violet-500/5 grid grid-cols-2 gap-2">
+          <input value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} placeholder="id (slug)" className="px-2 py-1.5 rounded bg-zinc-900 border border-white/10 text-xs text-zinc-200" />
+          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Name" className="px-2 py-1.5 rounded bg-zinc-900 border border-white/10 text-xs text-zinc-200" />
+          <input value={form.command} onChange={e => setForm(f => ({ ...f, command: e.target.value }))} placeholder="command (npx)" className="px-2 py-1.5 rounded bg-zinc-900 border border-white/10 text-xs text-zinc-200" />
+          <input value={form.package} onChange={e => setForm(f => ({ ...f, package: e.target.value }))} placeholder="package (@scope/pkg)" className="px-2 py-1.5 rounded bg-zinc-900 border border-white/10 text-xs text-zinc-200" />
+          <input value={form.env} onChange={e => setForm(f => ({ ...f, env: e.target.value }))} placeholder="env vars (comma-separated)" className="col-span-2 px-2 py-1.5 rounded bg-zinc-900 border border-white/10 text-xs text-zinc-200" />
+          <button onClick={add} className="col-span-2 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-sm text-white font-medium transition-colors">Add server</button>
+        </div>
+      )}
+
+      <div className="space-y-1.5 max-h-96 overflow-auto">
+        {servers.map(s => {
+          const c = checks[s.id];
+          const t = tests[s.id];
+          return (
+            <div key={s.id} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-white/5 border-b border-white/5 last:border-0">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm text-zinc-200 truncate">{s.name} <span className="text-zinc-600 text-xs">{s.id}</span></div>
+                <div className="text-xs text-zinc-600 truncate">{s.description}</div>
+              </div>
+              {c && (c.required.length === 0
+                ? <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-zinc-700/40 text-zinc-400 border border-white/10 shrink-0">no env</span>
+                : c.ok
+                  ? <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-300 border border-green-500/25 shrink-0">env ✓</span>
+                  : <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/25 shrink-0" title={c.missing.join(', ')}>needs {c.missing.length}</span>)}
+              {t && <span className={`text-[11px] px-1.5 py-0.5 rounded-full border shrink-0 ${t.reachable ? 'bg-teal-500/10 text-teal-300 border-teal-500/25' : 'bg-red-500/10 text-red-300 border-red-500/25'}`} title={t.detail}>{t.reachable ? 'reachable' : 'unreachable'}</span>}
+              <button onClick={() => test(s.id)} disabled={testing === s.id} className="p-1.5 rounded-lg text-zinc-500 hover:text-teal-300 hover:bg-teal-500/10 shrink-0" title="Connection test">
+                {testing === s.id ? <Loader2 size={14} className="animate-spin" /> : <Wifi size={14} />}
+              </button>
+              <button onClick={() => remove(s.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-red-300 hover:bg-red-500/10 shrink-0" title="Delete"><Trash2 size={14} /></button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [groups, setGroups] = useState({});
 
@@ -264,6 +362,7 @@ export default function SettingsPage() {
       ))}
 
       <ApiKeys />
+      <McpRegistry />
       <ImportExport />
     </div>
   );
