@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { syncAgencyAgents } from '../agency-sync.js';
+import { adoptAgencyAgent } from '../packs.js';
 
 function parseAgent(a) {
   const parsed = { ...a };
@@ -30,6 +31,15 @@ export default function agencyRouter(db) {
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
 
     res.json(parseAgent(agent));
+  });
+
+  // POST /api/agency/:id/adopt - copy this catalog agent into the runnable roster
+  router.post('/:id/adopt', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid agent ID' });
+    const result = adoptAgencyAgent(db, id);
+    if (result.error) return res.status(result.status || 400).json(result);
+    res.status(201).json(result);
   });
 
   // POST /api/agency/sync - trigger re-sync from GitHub

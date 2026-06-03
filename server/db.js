@@ -227,6 +227,11 @@ export function initDb() {
     db.exec(`ALTER TABLE agents ADD COLUMN model_config TEXT DEFAULT NULL`);
     console.log('[db] migrated: agents.model_config added');
   }
+  // P5: provenance tag for agents brought in via pack import or agency adoption.
+  if (!agentCols.has('source_pack')) {
+    db.exec(`ALTER TABLE agents ADD COLUMN source_pack TEXT DEFAULT NULL`);
+    console.log('[db] migrated: agents.source_pack added');
+  }
   // Durable job queue + retry/backoff (P3)
   const runCols = new Set(db.prepare(`PRAGMA table_info(runs)`).all().map(c => c.name));
   for (const [col, def] of [['attempt', 'INTEGER NOT NULL DEFAULT 0'], ['max_attempts', 'INTEGER NOT NULL DEFAULT 1'], ['next_attempt_at', 'TEXT']]) {

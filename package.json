@@ -28,6 +28,7 @@
     "react-dom": "^18",
     "react-router-dom": "^6",
     "recharts": "^3.8.1",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

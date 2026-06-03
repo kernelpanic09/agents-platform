@@ -1,16 +1,28 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Copy, Check, Terminal, ExternalLink, Download, Globe } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Copy, Check, Terminal, ExternalLink, Download, Globe, UserPlus } from 'lucide-react';
 import { downloadMarkdown } from '../utils/download';
 import { copyToClipboard } from '../utils/clipboard';
 
 export default function AgencyAgentProfile() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [agent, setAgent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showActivate, setShowActivate] = useState(false);
+  const [adopting, setAdopting] = useState(false);
+
+  const adopt = async () => {
+    setAdopting(true);
+    try {
+      const res = await fetch(`/api/agency/${id}/adopt`, { method: 'POST' });
+      const body = await res.json();
+      if (res.ok || res.status === 409) navigate(`/agent/${body.id}`);
+      else alert(body.error || 'Adopt failed');
+    } finally { setAdopting(false); }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -126,6 +138,15 @@ export default function AgencyAgentProfile() {
               >
                 <Terminal size={14} aria-hidden="true" />
                 Activate in Claude Code
+              </button>
+              <button
+                onClick={adopt}
+                disabled={adopting}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white transition-colors"
+                title="Copy this catalog agent into your runnable roster"
+              >
+                <UserPlus size={14} aria-hidden="true" />
+                {adopting ? 'Adopting…' : 'Adopt into roster'}
               </button>
               <a
                 href={`https://github.com/msitarzewski/agency-agents/blob/main/${agent.source_file}`}
