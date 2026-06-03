@@ -14,6 +14,8 @@ const RunDetailPage = lazy(() => import('./pages/RunDetailPage'));
 const AllRunsPage = lazy(() => import('./pages/AllRunsPage'));
 const RagPlayground = lazy(() => import('./pages/RagPlayground'));
 const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'));
+const PipelinesPage = lazy(() => import('./pages/PipelinesPage'));
+const PipelineDetailPage = lazy(() => import('./pages/PipelineDetailPage'));
 const ObservabilityPage = lazy(() => import('./pages/ObservabilityPage'));
 const EvalPage = lazy(() => import('./pages/EvalPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -67,6 +69,14 @@ export default function App() {
               <Route
                 path="/workflows"
                 element={<Suspense fallback={SuspenseLoader}><WorkflowsPage /></Suspense>}
+              />
+              <Route
+                path="/pipelines"
+                element={<Suspense fallback={SuspenseLoader}><PipelinesPage /></Suspense>}
+              />
+              <Route
+                path="/pipelines/:id"
+                element={<Suspense fallback={SuspenseLoader}><PipelineDetailPage /></Suspense>}
               />
               <Route
                 path="/observability"

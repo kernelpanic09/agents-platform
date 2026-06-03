@@ -12,3 +12,6 @@ dist/
 .idea/
 coverage/
 .env.local
+
+# operational task scratch (planning TODO lives in docs/planning/)
+/TODO.md

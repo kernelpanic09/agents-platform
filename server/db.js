@@ -245,6 +245,38 @@ export function initDb() {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  // Agent Pipeline Builder (P5) — a DAG of agent nodes with conditional edges,
+  // executed through LangGraph. Runs get their own table (keeps the runs/FK schema
+  // untouched) and reuse the SSE run-stream registry, keyed `pipeline-run:<id>`.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pipelines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      graph TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
+      last_run_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pipeline_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pipeline_id INTEGER NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+      task TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      node_states TEXT DEFAULT '{}',
+      outputs TEXT DEFAULT '{}',
+      summary TEXT,
+      started_at TEXT,
+      finished_at TEXT,
+      duration_ms INTEGER,
+      error_message TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pipeline_runs_pipeline ON pipeline_runs(pipeline_id, created_at DESC);
+  `);
+
   // Seed if empty
   const count = db.prepare('SELECT COUNT(*) as count FROM agents').get();
   if (count.count === 0) {
