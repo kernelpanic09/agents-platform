@@ -93,7 +93,7 @@ The platform was built in five planned phases (visibility → configurability �
 The UI is a flat dark dashboard with an amber primary and teal secondary accent (Hanken Grotesk type, status-pill badges — deliberately not the default AI-glassmorphism look).
 
 ### Agent Directory
-![Agent Directory](docs/screenshots/home.png?v=2)
+![Agent Directory](docs/screenshots/home.png?v=3)
 
 The 20-agent roster with search, category filters, and quick-task cards.
 
@@ -108,15 +108,15 @@ A real run of the *Incident Triage* pipeline: Sentinel swept the cluster, its ou
 Reusable teams with fan / chain / round-table topologies, one-click run or schedule, and suggested crews derived from the related-agents graph.
 
 ### Schedules and Runs
-![Schedules](docs/screenshots/schedules.png?v=2)
+![Schedules](docs/screenshots/schedules.png?v=3)
 
 Ten production-grade scheduled workflows spanning all three composition modes — parallel, sequential, and meeting.
 
-![New Schedule form](docs/screenshots/schedule-form.png?v=2)
+![New Schedule form](docs/screenshots/schedule-form.png?v=3)
 
-Creating a schedule from one form: pick which agents take part, choose a composition mode (parallel / sequential / meeting), scope the run to a specific app (the agents `cd` into it and read its `CLAUDE.md`), write the task prompt, and set the cadence with the cron builder — which previews the next runs and the human-readable schedule.
+Creating a schedule from one form: pick which agents take part, choose a composition mode (parallel / sequential / meeting), scope the run to a specific app (the agents `cd` into it and read its `CLAUDE.md`), pick a model, an **execution backend** (subscription SSH vs Anthropic API), and a **safety tier** (read-only / controlled / supervised), then set the cadence with the cron builder.
 
-![Run History](docs/screenshots/runs.png?v=2)
+![Run History](docs/screenshots/runs.png?v=3)
 
 Run history with status, duration, and per-run summaries.
 
@@ -131,9 +131,9 @@ Success rate, p95 latency, and daily cost against live-configurable SLO targets 
 Live platform settings with source badges (env seed vs DB override vs default) — concurrency, timeouts, models, safety, retention, and SLO targets tune at runtime with no redeploy. The same page manages scoped API keys, the MCP registry, and agent-pack import/export.
 
 ### LangGraph Workflows
-![Workflows](docs/screenshots/workflows.png?v=2)
+![Workflows](docs/screenshots/workflows.png?v=3)
 
-Route visualization for multi-step agent workflows.
+The LangGraph routing layer: workflow types and the task router that classifies each request (RAG / multi-step workflow / SSH dispatch).
 
 ---
 
