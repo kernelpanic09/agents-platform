@@ -97,6 +97,16 @@ The UI is a flat dark dashboard with an amber primary and teal secondary accent 
 
 The 20-agent roster with search, category filters, and quick-task cards.
 
+### Pipelines — conditional DAG orchestration
+![Pipeline Builder](docs/screenshots/pipelines.png)
+
+A real run of the *Incident Triage* pipeline: Sentinel swept the cluster, its output didn't contain `CRITICAL`, so the graph routed to **Mirror** (the else-branch) while **Relay** (the always-edge) fired in parallel — and **Atlas was correctly skipped**. Node statuses stream onto the DAG live over SSE; the builder below edits nodes and conditional edges in place.
+
+### Crews — saved agent teams
+![Crews](docs/screenshots/crews.png)
+
+Reusable teams with fan / chain / round-table topologies, one-click run or schedule, and suggested crews derived from the related-agents graph.
+
 ### Schedules and Runs
 ![Schedules](docs/screenshots/schedules.png?v=2)
 
@@ -109,6 +119,16 @@ Creating a schedule from one form: pick which agents take part, choose a composi
 ![Run History](docs/screenshots/runs.png?v=2)
 
 Run history with status, duration, and per-run summaries.
+
+### Observability and Platform SLOs
+![Observability](docs/screenshots/observability.png)
+
+Success rate, p95 latency, and daily cost against live-configurable SLO targets — plus the cost split that makes the SSH design legible: subscription runs metered at notional API prices ("Saved vs the API") next to actual opt-in API spend.
+
+### Settings Hub
+![Settings](docs/screenshots/settings.png)
+
+Live platform settings with source badges (env seed vs DB override vs default) — concurrency, timeouts, models, safety, retention, and SLO targets tune at runtime with no redeploy. The same page manages scoped API keys, the MCP registry, and agent-pack import/export.
 
 ### LangGraph Workflows
 ![Workflows](docs/screenshots/workflows.png?v=2)
