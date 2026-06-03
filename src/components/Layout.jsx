@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Bot, Calendar, Home, History, Database, GitBranch, Waypoints, Activity, FlaskConical, Settings } from 'lucide-react';
+import { Bot, Calendar, Home, History, Database, GitBranch, Waypoints, Users, Activity, FlaskConical, Settings } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Directory', icon: Home, match: (p) => p === '/' || p.startsWith('/agent/') || p.startsWith('/agency/') || p === '/compose' },
@@ -8,6 +8,7 @@ const NAV = [
   { to: '/rag', label: 'RAG', icon: Database, match: (p) => p === '/rag' },
   { to: '/workflows', label: 'Workflows', icon: GitBranch, match: (p) => p === '/workflows' },
   { to: '/pipelines', label: 'Pipelines', icon: Waypoints, match: (p) => p === '/pipelines' || p.startsWith('/pipelines/') },
+  { to: '/crews', label: 'Crews', icon: Users, match: (p) => p === '/crews' },
   { to: '/observability', label: 'Observe', icon: Activity, match: (p) => p === '/observability' },
   { to: '/eval', label: 'Eval', icon: FlaskConical, match: (p) => p === '/eval' },
   { to: '/settings', label: 'Settings', icon: Settings, match: (p) => p === '/settings' },

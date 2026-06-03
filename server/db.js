@@ -277,6 +277,24 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_pipeline_runs_pipeline ON pipeline_runs(pipeline_id, created_at DESC);
   `);
 
+  // Saved Crews (P5) — named reusable agent teams with a topology
+  // (fan=parallel, chain=sequential, roundtable=meeting). Running/scheduling a
+  // crew delegates to the existing schedule machinery (full run history + Live
+  // Run Theater for free).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS crews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      agent_ids TEXT NOT NULL DEFAULT '[]',
+      topology TEXT NOT NULL DEFAULT 'fan',
+      task TEXT DEFAULT '',
+      source TEXT DEFAULT 'manual',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
   // Seed if empty
   const count = db.prepare('SELECT COUNT(*) as count FROM agents').get();
   if (count.count === 0) {

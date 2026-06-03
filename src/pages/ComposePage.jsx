@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Check, Download, Users, Calendar } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Download, Users, Calendar, Save } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
 import ScheduleModal from '../components/ScheduleModal';
 import { useSelection } from '../context/SelectionContext';
@@ -90,6 +90,7 @@ export default function ComposePage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [savedCrew, setSavedCrew] = useState(false);
 
   useEffect(() => {
     if (selectedIds.size < 2) {
@@ -131,6 +132,14 @@ export default function ComposePage() {
 
   const handleBack = () => {
     navigate('/');
+  };
+
+  const saveAsCrew = async () => {
+    const res = await fetch('/api/crews', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: agents.map(a => a.name).join(' + '), topology: 'fan', agent_ids: agents.map(a => a.id) }),
+    });
+    if (res.ok) { setSavedCrew(true); setTimeout(() => navigate('/crews'), 700); }
   };
 
   return (
@@ -189,6 +198,13 @@ export default function ComposePage() {
           >
             <Calendar size={14} />
             Schedule Task Force
+          </button>
+          <button
+            onClick={saveAsCrew}
+            className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"
+          >
+            {savedCrew ? <Check size={14} /> : <Save size={14} />}
+            {savedCrew ? 'Saved!' : 'Save as Crew'}
           </button>
           <button
             onClick={() => { clear(); navigate('/'); }}
