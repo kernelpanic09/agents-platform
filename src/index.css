@@ -13,6 +13,25 @@
   scrollbar-color: rgba(154, 147, 132, 0.3) transparent;
 }
 
+/* Keyboard focus: a consistent amber ring on every interactive element that
+ * doesn't define its own focus-visible treatment. Never removed, only styled. */
+:where(button, a, input, select, textarea, [role='checkbox']):focus-visible {
+  outline: 2px solid rgba(224, 168, 46, 0.55);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Respect users who opt out of motion: collapse entrances/transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .animate-fade-in-up { opacity: 1; }
+}
+
+
 *::-webkit-scrollbar {
   width: 6px;
 }

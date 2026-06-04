@@ -45,7 +45,25 @@ export default function Home() {
   const [agencyLoaded, setAgencyLoaded] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
+  const [agentStats, setAgentStats] = useState({});
+  const [platform, setPlatform] = useState(null);
   const { selectMode, toggleSelectMode } = useSelection();
+
+  // Per-agent dispatch telemetry + platform overview (best-effort; cards degrade gracefully)
+  useEffect(() => {
+    fetch('/api/agents/stats').then(r => r.ok ? r.json() : {}).then(setAgentStats).catch(() => {});
+    Promise.all([
+      fetch('/api/schedules').then(r => r.ok ? r.json() : []),
+      fetch('/api/observability/slo').then(r => r.ok ? r.json() : null),
+    ]).then(([schedules, slo]) => {
+      setPlatform({
+        activeSchedules: Array.isArray(schedules) ? schedules.filter(s => s.status === 'active').length : 0,
+        totalSchedules: Array.isArray(schedules) ? schedules.length : 0,
+        runs7d: slo?.sample_size ?? null,
+        successRate: slo?.metrics?.successRate ?? null,
+      });
+    }).catch(() => {});
+  }, []);
 
   // Fetch homelab agents on mount
   useEffect(() => {
@@ -136,13 +154,30 @@ export default function Home() {
   return (
     <div>
       {/* Hero */}
-      <div className="text-center mb-10">
-        <h1 className="text-4xl sm:text-5xl font-bold mb-3 gradient-text">
+      <div className="text-center mb-6">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2.5 tracking-tight gradient-text">
           Agent Directory
         </h1>
-        <p className="text-zinc-400 text-lg max-w-xl mx-auto">
+        <p className="text-zinc-400 text-[15px] max-w-xl mx-auto leading-relaxed">
           Agent roster for scheduled infrastructure operations. Each agent defines a system prompt, inference profile, and knowledge sources.
         </p>
+      </div>
+
+      {/* Platform overview */}
+      <div className="flex items-center justify-center mb-8" aria-label="Platform overview">
+        <div className="inline-flex items-stretch divide-x divide-white/5 rounded-xl glass px-1 py-2.5">
+          {[
+            { label: 'agents', value: agents.length || '—' },
+            { label: 'active schedules', value: platform ? `${platform.activeSchedules}/${platform.totalSchedules}` : '—' },
+            { label: 'runs · 7d', value: platform?.runs7d ?? '—' },
+            { label: 'success · 7d', value: platform?.successRate != null ? `${Math.round(platform.successRate * 100)}%` : '—' },
+          ].map(st => (
+            <div key={st.label} className="px-5 text-center">
+              <div className="text-base font-semibold tabular-nums text-zinc-100 leading-none mb-1">{st.value}</div>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-zinc-600 leading-none">{st.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Tab switcher */}
@@ -293,7 +328,7 @@ export default function Home() {
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${selectMode && tab === 'homelab' ? 'pb-20' : ''}`}>
           {filtered.map((agent, i) =>
             tab === 'homelab'
-              ? <AgentCard key={agent.id} agent={agent} index={i} />
+              ? <AgentCard key={agent.id} agent={agent} index={i} stats={agentStats[agent.id]} />
               : <AgencyAgentCard key={agent.id} agent={agent} index={i} />
           )}
         </div>

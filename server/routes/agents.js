@@ -115,6 +115,25 @@ export default function agentsRouter(db) {
     res.json(agents.map(parseAgent));
   });
 
+  // GET /api/agents/stats - per-agent operational telemetry, aggregated from
+  // dispatch traces. Keyed by agent id: { dispatches, tokens, last_active }.
+  // Registered before /:id so the literal path wins.
+  router.get('/stats', (req, res) => {
+    const rows = db.prepare(`
+      SELECT agent_id,
+             COUNT(*) AS dispatches,
+             COALESCE(SUM(COALESCE(input_tokens,0) + COALESCE(output_tokens,0)), 0) AS tokens,
+             MAX(created_at) AS last_active
+      FROM traces
+      WHERE agent_id IS NOT NULL
+        AND step_name IN ('ssh_dispatch','api_dispatch','openai_dispatch')
+      GROUP BY agent_id
+    `).all();
+    const out = {};
+    for (const r of rows) out[r.agent_id] = { dispatches: r.dispatches, tokens: r.tokens, last_active: r.last_active };
+    res.json(out);
+  });
+
   // GET /api/agents/:id - get single agent with full details
   router.get('/:id', (req, res) => {
     const id = parseInt(req.params.id, 10);
