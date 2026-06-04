@@ -87,7 +87,9 @@ export default function PipelineGraph({ graph, nodeStates = {}, height = 360 }) 
               <text x={p.cx} y={p.cy - 2} textAnchor="middle" fontSize="12" fontWeight="600" fill={c.text}>
                 {(n.label || n.id).slice(0, 16)}
               </text>
-              <text x={p.cx} y={p.cy + 13} textAnchor="middle" fontSize="9" fill={c.text} opacity="0.7">{st}</text>
+              <text x={p.cx} y={p.cy + 13} textAnchor="middle" fontSize="9" fill={c.text} opacity="0.7">
+                {st}{nodeStates[n.id]?.verdict ? ` · ${nodeStates[n.id].verdict}` : ''}
+              </text>
             </g>
           );
         })}
