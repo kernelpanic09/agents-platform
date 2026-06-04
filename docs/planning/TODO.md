@@ -39,6 +39,8 @@
 
 ## Now
 
+- [ ] **CI: run the unit test suite.** The `npm test` step is already written into `.github/workflows/ci.yml` in the working tree but cannot be pushed until the gh token gains the `workflow` scope (`gh auth refresh -h github.com -s workflow`, owner action). Push it as soon as the scope lands. *(Added 2026-06-04.)*
+
 > The five highest impact-per-effort items, drawn directly from `prioritization.now`. **Do these first.** They eliminate the two most embarrassing gaps (invisible runs, empty cost dashboard) and make the platform's *existing* power legible before any new capability is added. All belong to **Phase P1 — Make It Visible & Honest**.
 
 - [ ] **Live Run Theater (SSE streaming)** — add `GET /api/runs/:id/stream` (native Node SSE, no new deps); refactor `runClaudeRemote` in `server/executor.js` to pipe `child.stdout` chunks to a per-`runId` `EventEmitter` instead of buffering to a string; subscribe `RunDetailPage` via `EventSource` and render per-agent streaming panels. The consensus #1 flagship. **[M · T1 · Deps: —]**

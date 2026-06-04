@@ -5,17 +5,17 @@
 [![Release](https://img.shields.io/github/v/release/kernelpanic09/agents-platform?include_prereleases&sort=semver)](https://github.com/kernelpanic09/agents-platform/releases)
 [![Last commit](https://img.shields.io/github/last-commit/kernelpanic09/agents-platform)](https://github.com/kernelpanic09/agents-platform/commits)
 
-An AI agent orchestration platform: a roster of agent personas dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop — with full cost/latency observability and platform SLOs.
+An AI agent orchestration platform: a roster of agent personas dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop - with full cost/latency observability and platform SLOs.
 
-![Live demo — a real Incident Triage pipeline run: Sentinel sweeps the cluster, flags CRITICAL, and the DAG routes to Atlas live over SSE](docs/screenshots/demo.gif)
+![Live demo - a real Incident Triage pipeline run: Sentinel sweeps the cluster, flags CRITICAL, and the DAG routes to Atlas live over SSE](docs/screenshots/demo.gif)
 
-*Live capture from the production deployment (3× speed): an Incident Triage pipeline fires, Sentinel sweeps the cluster and flags a `CRITICAL` finding, and the DAG routes to Atlas + Relay in real time — then a tour of Crews and the SLO dashboard.*
+*Live capture from the production deployment (3× speed): an Incident Triage pipeline fires, Sentinel sweeps the cluster and flags a `CRITICAL` finding, and the DAG routes to Atlas + Relay in real time - then a tour of Crews and the SLO dashboard.*
 
 ---
 
 ## What is this
 
-Agents Platform is a full-stack application for building, managing, and running AI agents. Each agent has a persona, system prompt, skill set, tool inventory, knowledge sources, and its own inference profile (model, temperature, max tokens). The platform dispatches agents via SSH to a remote Claude Code session (or the Anthropic API), routes multi-agent work through LangGraph — including user-built DAG pipelines with conditional branching — tracks every run with token/cost/latency telemetry, and streams run progress live into the UI.
+Agents Platform is a full-stack application for building, managing, and running AI agents. Each agent has a persona, system prompt, skill set, tool inventory, knowledge sources, and its own inference profile (model, temperature, max tokens). The platform dispatches agents via SSH to a remote Claude Code session (or the Anthropic API), routes multi-agent work through LangGraph - including user-built DAG pipelines with conditional branching - tracks every run with token/cost/latency telemetry, and streams run progress live into the UI.
 
 It ships with 20 pre-built agent personas covering infrastructure, development, security, media, and automation domains, plus 10 production-grade schedule templates. A demo mode runs locally with docker-compose -- no SSH target needed.
 
@@ -23,13 +23,13 @@ The platform was built in five planned phases (visibility → configurability �
 
 > ### 💡 Why SSH + a terminal instead of the Anthropic API?
 >
-> By design, the platform runs each agent by opening an **SSH session to a host that has Claude Code installed and spawning `claude -p` in a terminal** — rather than calling the Anthropic API. That host's **Claude subscription** powers the run, so executing agents consumes subscription tokens and incurs **no per-token API charges**. For a self-hosted, always-on agent fleet (scheduled audits, multi-agent runs), this keeps operating cost minimal.
+> By design, the platform runs each agent by opening an **SSH session to a host that has Claude Code installed and spawning `claude -p` in a terminal** - rather than calling the Anthropic API. That host's **Claude subscription** powers the run, so executing agents consumes subscription tokens and incurs **no per-token API charges**. For a self-hosted, always-on agent fleet (scheduled audits, multi-agent runs), this keeps operating cost minimal.
 >
 > **What this means in practice:**
-> - **Multi-agent runs (parallel / sequential / meeting) need no `ANTHROPIC_API_KEY`** — they dispatch purely over SSH.
+> - **Multi-agent runs (parallel / sequential / meeting) need no `ANTHROPIC_API_KEY`** - they dispatch purely over SSH.
 > - An API key is only used for the auxiliary LLM features that call Anthropic directly: **RAG chat, the eval judge, and the single-agent task router**.
 >
-> Prefer pay-per-token, or running headless/in-cloud where no subscription host is available? An **opt-in Anthropic API execution backend** is also supported — see [Execution backends](#execution-backends).
+> Prefer pay-per-token, or running headless/in-cloud where no subscription host is available? An **opt-in Anthropic API execution backend** is also supported - see [Execution backends](#execution-backends).
 
 ---
 
@@ -38,15 +38,15 @@ The platform was built in five planned phases (visibility → configurability �
 ### 1. Agent Roster
 - 20 persona definitions: name, title, tagline, system prompt, skills, tools, MCP servers, knowledge sources, example tasks, and related agents
 - Full CRUD via REST API and in-app forms; per-agent accent color and SVG avatar (20 unique illustrations)
-- **Per-agent inference profiles** — model, temperature, and max-tokens overrides applied at execution time
-- **Prompt version history** — every system-prompt edit auto-snapshots the prior version; view, diff, and restore from the agent profile
-- **Adopt from catalog** — copy any read-only agency-catalog agent into the runnable roster with one click (provenance-tagged)
+- **Per-agent inference profiles** - model, temperature, and max-tokens overrides applied at execution time
+- **Prompt version history** - every system-prompt edit auto-snapshots the prior version; view, diff, and restore from the agent profile
+- **Adopt from catalog** - copy any read-only agency-catalog agent into the runnable roster with one click (provenance-tagged)
 
 ### 2. Orchestration: Modes, Pipelines, and Crews
-- Runs `claude -p "<prompt>"` on a remote host over SSH — or via the Anthropic API, or **any OpenAI-compatible endpoint incl. local Ollama** (see [Execution backends](#execution-backends))
+- Runs `claude -p "<prompt>"` on a remote host over SSH - or via the Anthropic API, or **any OpenAI-compatible endpoint incl. local Ollama** (see [Execution backends](#execution-backends))
 - Three composition modes: parallel (fan-out, aggregate), sequential (pipeline), meeting (structured debate)
-- **DAG Pipeline Builder** — compose agents into a directed graph with **conditional edges evaluated against the prior agent's output** (e.g. `output.includes('CRITICAL')`, sandboxed in a `vm` context). Pipelines compile to LangGraph at run time and stream per-node status live onto the graph
-- **Saved Crews** — named, reusable agent teams with a topology (fan / chain / round-table), one-click run or schedule, plus suggested crews derived from the related-agents graph
+- **DAG Pipeline Builder** - compose agents into a directed graph with **conditional edges evaluated against the prior agent's output** (e.g. `output.includes('CRITICAL')`, sandboxed in a `vm` context). Pipelines compile to LangGraph at run time and stream per-node status live onto the graph
+- **Saved Crews** - named, reusable agent teams with a topology (fan / chain / round-table), one-click run or schedule, plus suggested crews derived from the related-agents graph
 - Cron scheduling with configurable concurrency; per-run Discord notifications
 
 ### 3. Live Run Theater
@@ -55,13 +55,13 @@ The platform was built in five planned phases (visibility → configurability �
 - Finished runs replay from history; mid-run viewers catch up from a buffered event stream
 
 ### 4. Trust & Governance
-- **Tiered safety policy engine** — every run executes under an explicit tier (`read_only` / `controlled_write` / `supervised`) that shapes the safety preamble injected into each agent prompt
+- **Tiered safety policy engine** - every run executes under an explicit tier (`read_only` / `controlled_write` / `supervised`) that shapes the safety preamble injected into each agent prompt
 - **Scoped API keys** (`read` → `trigger` → `write` → `admin`, SHA-256 hashed) protecting the external trigger surface
-- **Inbound webhooks** — `POST /api/webhooks/:token` fires a schedule from Prometheus alerts, git pushes, or n8n flows, with payload interpolation into the task prompt
-- **Durable job queue** — the runs table is the queue: crash recovery re-queues orphaned runs on boot, failed runs retry with exponential backoff, exhausted runs land in a dead-letter state with one-click re-queue
+- **Inbound webhooks** - `POST /api/webhooks/:token` fires a schedule from Prometheus alerts, git pushes, or n8n flows, with payload interpolation into the task prompt
+- **Durable job queue** - the runs table is the queue: crash recovery re-queues orphaned runs on boot, failed runs retry with exponential backoff, exhausted runs land in a dead-letter state with one-click re-queue
 
 ### 5. Settings Hub
-- Live platform settings with clear precedence: **DB override → env seed → code default** — tune concurrency, timeouts, models, retention, safety preamble, and SLO targets at runtime with no redeploy
+- Live platform settings with clear precedence: **DB override → env seed → code default** - tune concurrency, timeouts, models, retention, safety preamble, and SLO targets at runtime with no redeploy
 - Model allowlist editable live (add a new Claude model without shipping code)
 
 ### 6. RAG Engine
@@ -72,41 +72,41 @@ The platform was built in five planned phases (visibility → configurability �
 
 ### 7. LangGraph Workflows
 - Task router: Claude Haiku classifies each request (RAG query / workflow / SSH dispatch)
-- State machine graphs built with `@langchain/langgraph` — including **dynamic graphs compiled from user-built pipelines**
+- State machine graphs built with `@langchain/langgraph` - including **dynamic graphs compiled from user-built pipelines**
 - Built-in tools: `kubectl` runner, file reader, RAG search
 
 ### 8. Observability, SLOs, and Cost
-- Telemetry for **both backends**: API calls and SSH runs (token usage parsed from `claude`'s JSON output) — every run lands in the cost dashboard
-- **"Savings vs API" view** — subscription runs cost $0 but are metered at notional API prices, so the dashboard shows exactly what the SSH design saves
-- **Platform SLOs** — success rate, p95 run latency, and daily cost vs live-configurable targets, with green/warning/breach status and Discord alerting on transition into breach
+- Telemetry for **both backends**: API calls and SSH runs (token usage parsed from `claude`'s JSON output) - every run lands in the cost dashboard
+- **"Savings vs API" view** - subscription runs cost $0 but are metered at notional API prices, so the dashboard shows exactly what the SSH design saves
+- **Platform SLOs** - success rate, p95 run latency, and daily cost vs live-configurable targets, with green/warning/breach status and Discord alerting on transition into breach
 - Recharts dashboard: daily cost trends, model distribution, latency percentiles, recent traces
 
 ### 9. Evaluation & Self-Improvement
 - Eval suites with LLM-as-judge scoring; judge model and pass threshold are configurable per run
-- **Prompt A/B testing** — score the agent's current prompt (A) against a candidate (B) on the same suite, side by side
-- **Promote-to-active** — one click sets the winning prompt live (auto-snapshotting the old one), closing the measure → improve → ship loop
+- **Prompt A/B testing** - score the agent's current prompt (A) against a candidate (B) on the same suite, side by side
+- **Promote-to-active** - one click sets the winning prompt live (auto-snapshotting the old one), closing the measure → improve → ship loop
 
 ### 10. Portability: Agent Packs & MCP Registry
-- **Agent-pack YAML import/export** — versioned packs of agents, crews, schedules, and pipelines; cross-references travel by agent *name*, so a pack moves cleanly between deployments
-- **DB-backed MCP registry** — the integration catalog is editable at runtime (add/edit/delete servers, no redeploy), with per-server env-var validation badges and a remote connection test
+- **Agent-pack YAML import/export** - versioned packs of agents, crews, schedules, and pipelines; cross-references travel by agent *name*, so a pack moves cleanly between deployments
+- **DB-backed MCP registry** - the integration catalog is editable at runtime (add/edit/delete servers, no redeploy), with per-server env-var validation badges and a remote connection test
 
 ---
 
 ## Screenshots
 
-The UI is a flat dark dashboard with an amber primary and teal secondary accent (Hanken Grotesk type, status-pill badges — deliberately not the default AI-glassmorphism look).
+The UI is a flat dark dashboard with an amber primary and teal secondary accent (Hanken Grotesk type, status-pill badges - deliberately not the default AI-glassmorphism look).
 
 ### Agent Directory
 ![Agent Directory](docs/screenshots/home.png?v=3)
 
 The 20-agent roster with search, category filters, and quick-task cards.
 
-### Pipelines — conditional DAG orchestration
+### Pipelines - conditional DAG orchestration
 ![Pipeline Builder](docs/screenshots/pipelines.png)
 
-A real run of the *Incident Triage* pipeline: Sentinel swept the cluster, its output didn't contain `CRITICAL`, so the graph routed to **Mirror** (the else-branch) while **Relay** (the always-edge) fired in parallel — and **Atlas was correctly skipped**. Node statuses stream onto the DAG live over SSE; the builder below edits nodes and conditional edges in place.
+A real run of the *Incident Triage* pipeline: Sentinel swept the cluster, its output didn't contain `CRITICAL`, so the graph routed to **Mirror** (the else-branch) while **Relay** (the always-edge) fired in parallel - and **Atlas was correctly skipped**. Node statuses stream onto the DAG live over SSE; the builder below edits nodes and conditional edges in place.
 
-### Crews — saved agent teams
+### Crews - saved agent teams
 ![Crews](docs/screenshots/crews.png)
 
 Reusable teams with fan / chain / round-table topologies, one-click run or schedule, and suggested crews derived from the related-agents graph.
@@ -114,7 +114,7 @@ Reusable teams with fan / chain / round-table topologies, one-click run or sched
 ### Schedules and Runs
 ![Schedules](docs/screenshots/schedules.png?v=3)
 
-Ten production-grade scheduled workflows spanning all three composition modes — parallel, sequential, and meeting.
+Ten production-grade scheduled workflows spanning all three composition modes - parallel, sequential, and meeting.
 
 ![New Schedule form](docs/screenshots/schedule-form.png?v=3)
 
@@ -127,12 +127,12 @@ Run history with status, duration, and per-run summaries.
 ### Observability and Platform SLOs
 ![Observability](docs/screenshots/observability.png)
 
-Success rate, p95 latency, and daily cost against live-configurable SLO targets — plus the cost split that makes the SSH design legible: subscription runs metered at notional API prices ("Saved vs the API") next to actual opt-in API spend.
+Success rate, p95 latency, and daily cost against live-configurable SLO targets - plus the cost split that makes the SSH design legible: subscription runs metered at notional API prices ("Saved vs the API") next to actual opt-in API spend.
 
 ### Settings Hub
 ![Settings](docs/screenshots/settings.png)
 
-Live platform settings with source badges (env seed vs DB override vs default) — concurrency, timeouts, models, safety, retention, and SLO targets tune at runtime with no redeploy. The same page manages scoped API keys, the MCP registry, and agent-pack import/export.
+Live platform settings with source badges (env seed vs DB override vs default) - concurrency, timeouts, models, safety, retention, and SLO targets tune at runtime with no redeploy. The same page manages scoped API keys, the MCP registry, and agent-pack import/export.
 
 ### LangGraph Workflows
 ![Workflows](docs/screenshots/workflows.png?v=3)
@@ -188,7 +188,7 @@ Express.js (port 3001)
 ## Production Schedule Library
 
 The platform ships with 10 ready-to-use scheduled workflows that exercise all three
-composition modes against real platform operations — the kind a platform team runs on a
+composition modes against real platform operations - the kind a platform team runs on a
 cron cadence. Each bundles a curated set of agents, a rich task prompt, and a realistic schedule.
 
 | Schedule | Mode | Cadence | Agents |
@@ -232,7 +232,7 @@ docker compose exec ollama ollama pull nomic-embed-text
 
 ## Configuration
 
-> **Live settings:** most operational knobs (concurrency, timeouts, default model, model allowlist, retries, retention, safety preamble, SLO targets, SSH target, execution backend) are editable at runtime in **Settings** — stored as DB overrides with precedence **DB > env > default**. The env vars below seed the defaults; secrets (API keys, SSH keys, webhook tokens) stay in the environment only.
+> **Live settings:** most operational knobs (concurrency, timeouts, default model, model allowlist, retries, retention, safety preamble, SLO targets, SSH target, execution backend) are editable at runtime in **Settings** - stored as DB overrides with precedence **DB > env > default**. The env vars below seed the defaults; secrets (API keys, SSH keys, webhook tokens) stay in the environment only.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -268,14 +268,14 @@ Agents can be dispatched through either of two backends. The default keeps opera
 
 | Backend | How it runs | Cost | Needs a key? | Best for |
 |---------|-------------|------|--------------|----------|
-| `subscription` (default) | SSH to a host running Claude Code, spawns `claude -p` in a terminal | Subscription tokens — **no per-token API charge** | No | A self-hosted box with a Claude subscription; always-on fleets |
+| `subscription` (default) | SSH to a host running Claude Code, spawns `claude -p` in a terminal | Subscription tokens - **no per-token API charge** | No | A self-hosted box with a Claude subscription; always-on fleets |
 | `api` (opt-in) | Calls the Anthropic API directly (`@anthropic-ai/sdk`) | Pay-per-token | `ANTHROPIC_API_KEY` | Headless / cloud runs, or when no subscription host is available |
 | `openai` (opt-in) | Calls any **OpenAI-compatible** `/chat/completions` endpoint (plain `fetch`, no SDK) | Free if pointed at **local Ollama / vLLM**; otherwise provider pricing | `OPENAI_BASE_URL` (+ key for hosted) | Fully-local models, air-gapped runs, or any non-Anthropic provider |
 
-**Selecting a backend** (precedence — most specific wins):
+**Selecting a backend** (precedence - most specific wins):
 
-1. **Per-schedule** — set `execution_backend` to `subscription`, `api`, or `openai` on a schedule (also selectable in the "New Schedule" form). `null` inherits the global default.
-2. **Global default** — the `execution_backend` live setting / `EXECUTION_BACKEND` env var (`subscription` when unset).
+1. **Per-schedule** - set `execution_backend` to `subscription`, `api`, or `openai` on a schedule (also selectable in the "New Schedule" form). `null` inherits the global default.
+2. **Global default** - the `execution_backend` live setting / `EXECUTION_BACKEND` env var (`subscription` when unset).
 
 Both backends return identical run records, and `api`-backend runs are metered into the cost dashboard (tagged `source = api`), so you can compare real spend across backends.
 
@@ -328,7 +328,7 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `POST` | `/api/schedules/:id/run` | Trigger schedule manually |
 | `GET` | `/api/runs` | List all runs with status |
 | `GET` | `/api/runs/:id` | Run detail with stdout |
-| `GET` | `/api/runs/:id/stream` | **SSE** — live per-agent events (replays finished runs) |
+| `GET` | `/api/runs/:id/stream` | **SSE** - live per-agent events (replays finished runs) |
 | `POST` | `/api/runs/:id/retry` | Re-queue a finished / dead-lettered run |
 
 ### Pipelines (DAG)
@@ -340,7 +340,7 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `POST` | `/api/pipelines/:id/run` | Execute through LangGraph (fire-and-forget) |
 | `GET` | `/api/pipelines/:id/runs` | Pipeline run history |
 | `GET` | `/api/pipelines/runs/:runId` | Run detail with per-node states |
-| `GET` | `/api/pipelines/runs/:runId/stream` | **SSE** — live node-status overlay |
+| `GET` | `/api/pipelines/runs/:runId/stream` | **SSE** - live node-status overlay |
 
 ### Crews
 | Method | Path | Description |
