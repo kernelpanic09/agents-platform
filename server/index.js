@@ -33,7 +33,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(compression());
+// Compress everything EXCEPT Server-Sent Events: gzip buffers SSE writes until
+// the stream closes, which would turn the Live Run Theater into a replay-at-end.
+app.use(compression({
+  filter: (req, res) => {
+    if (/text\/event-stream/.test(String(res.getHeader('Content-Type') || ''))) return false;
+    return compression.filter(req, res);
+  },
+}));
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 

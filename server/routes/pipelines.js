@@ -132,7 +132,7 @@ export default function pipelinesRouter(db) {
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     });
-    const send = (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`);
+    const send = (ev) => { res.write(`data: ${JSON.stringify(ev)}\n\n`); res.flush?.(); };
 
     const finished = ['success', 'failed', 'timeout'].includes(run.status);
     if (finished && !isRunLive(channel)) {
@@ -142,7 +142,7 @@ export default function pipelinesRouter(db) {
     }
 
     send({ type: 'status', status: run.status });
-    const keepalive = setInterval(() => res.write(': ping\n\n'), 20000);
+    const keepalive = setInterval(() => { res.write(': ping\n\n'); res.flush?.(); }, 20000);
     const unsub = subscribeRun(channel, (ev) => {
       send(ev);
       if (ev.type === 'done') { clearInterval(keepalive); unsub(); res.end(); }
