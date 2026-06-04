@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import VerdictBadge from '../components/VerdictBadge';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, Loader, Clock, RotateCw, FileText, Users, Code } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
@@ -77,7 +78,7 @@ export default function RunDetailPage() {
       .then(data => {
         setRun(data);
         setLoading(false);
-        // Live Run Theater: stream agent lifecycle events for an in-flight run.
+        // Live run streaming: agent lifecycle events for an in-flight run (SSE).
         if (data.status === 'running' || data.status === 'queued') {
           setStreaming(true);
           es = new EventSource(`/api/runs/${id}/stream`);
@@ -122,6 +123,13 @@ export default function RunDetailPage() {
     else { const b = await res.json().catch(() => ({})); alert(b.error || 'Retry failed'); }
   };
 
+  // Supervised-tier approval gate: release or decline a held run.
+  const decide = async (action) => {
+    const res = await fetch(`/api/runs/${id}/${action}`, { method: 'POST' });
+    if (res.ok) window.location.reload();
+    else { const b = await res.json().catch(() => ({})); alert(b.error || `${action} failed`); }
+  };
+
   if (loading || !run) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -157,13 +165,29 @@ export default function RunDetailPage() {
               <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 uppercase">{run.mode}</span>
             </div>
             <div className="text-sm text-zinc-400 flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
-              <span>Status: <span className="text-white">{run.status}</span></span>
+              <span className="inline-flex items-center gap-2">Status: <span className="text-white">{run.status}</span> <VerdictBadge verdict={run.verdict} /></span>
               <span>Duration: {formatDuration(run.duration_ms)}</span>
               <span>Started: {run.started_at ? new Date(run.started_at).toLocaleString() : '—'}</span>
               <span>Finished: {run.finished_at ? new Date(run.finished_at).toLocaleString() : '—'}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {run.status === 'pending_approval' && (
+              <>
+                <button
+                  onClick={() => decide('approve')}
+                  className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-green-600/20 border border-green-600/30 text-green-300 hover:bg-green-600/30 transition-colors"
+                >
+                  Approve & dispatch
+                </button>
+                <button
+                  onClick={() => decide('reject')}
+                  className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-red-600/10 border border-red-600/25 text-red-300 hover:bg-red-600/20 transition-colors"
+                >
+                  Reject
+                </button>
+              </>
+            )}
             {(run.status === 'failed' || run.status === 'timeout') && (
               <button
                 onClick={retry}
@@ -202,7 +226,7 @@ export default function RunDetailPage() {
         )}
       </div>
 
-      {/* Live Run Theater — per-agent status as the run streams in */}
+      {/* Live run stream: per-agent status as the run progresses */}
       {streaming && (
         <div className="glass rounded-2xl p-6 mb-6">
           <h2 className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">

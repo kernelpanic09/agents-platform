@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { policyToPrompt, resolveTier } from './safety-prompt.js';
+import { policyToPrompt, resolveTier, tierCliFlags } from './safety-prompt.js';
 import { recordTrace } from './observability/telemetry.js';
 import { getSetting } from './settings.js';
 
@@ -48,7 +48,9 @@ export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null, tier
     parts.push(priorTranscript);
     parts.push('\n\n# Your turn\nBuild on, verify, or add to the above. Do not repeat it verbatim.');
   }
-  parts.push('\n\nEnd your response with a single line starting with "SUMMARY:".');
+  parts.push('\n\nEnd your response with exactly two final lines:\n');
+  parts.push('STATUS: <ok|attention|critical>   (your overall assessment: ok = nothing notable, attention = degraded or needs follow-up, critical = urgent problem)\n');
+  parts.push('SUMMARY: <one line, under 300 characters>');
   return parts.join('');
 }
 
@@ -71,7 +73,9 @@ export function buildMeetingPrompt(agents, taskPrompt, tier = 'read_only') {
   parts.push('\n\n## Output Format\n\n');
   parts.push('Produce the full meeting transcript. Each contribution on its own lines in the form:\n\n');
   parts.push('**{Name}:** their message\n\n');
-  parts.push('End the transcript with a single line starting with "SUMMARY:" naming the decisions reached and any follow-up actions (under 300 chars).');
+  parts.push('End the transcript with exactly two final lines:\n');
+  parts.push('STATUS: <ok|attention|critical>   (the meeting\'s overall assessment)\n');
+  parts.push('SUMMARY: <decisions reached and follow-up actions, under 300 chars>');
   return parts.join('');
 }
 
@@ -87,6 +91,28 @@ export function extractSummary(resultText) {
   const paragraphs = resultText.trim().split(/\n\s*\n/);
   const last = paragraphs[paragraphs.length - 1] || resultText;
   return last.trim().slice(0, 2000);
+}
+
+const VERDICTS = ['ok', 'attention', 'critical'];
+
+/**
+ * Extract the structured STATUS verdict from agent output.
+ * Returns 'ok' | 'attention' | 'critical' | null (older runs / non-conforming output).
+ */
+export function extractVerdict(resultText) {
+  if (!resultText) return null;
+  const m = resultText.match(/^\s*\*{0,2}STATUS:?\*{0,2}\s*(ok|attention|critical)\b/im);
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** Aggregate per-agent verdicts into a run verdict (worst wins; nulls ignored). */
+export function worstVerdict(verdicts) {
+  let worst = null;
+  for (const v of verdicts) {
+    if (!VERDICTS.includes(v)) continue;
+    if (worst === null || VERDICTS.indexOf(v) > VERDICTS.indexOf(worst)) worst = v;
+  }
+  return worst;
 }
 
 /**
@@ -132,13 +158,16 @@ function safeModel(m) {
  * Run one `claude -p` invocation over SSH to the remote host.
  * Returns { stdout, stderr, exitCode, timedOut }.
  */
-export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms'), sshTarget = getSetting('ssh_target'), sshKeyPath = SSH_KEY_PATH, model = getSetting('default_model'), cwd = '/tmp', maxTurns = 0, runId = null, agentId = null } = {}) {
+export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms'), sshTarget = getSetting('ssh_target'), sshKeyPath = SSH_KEY_PATH, model = getSetting('default_model'), cwd = '/tmp', maxTurns = 0, tier = null, runId = null, agentId = null } = {}) {
   return new Promise((resolve) => {
     const started = Date.now();
     const b64 = Buffer.from(prompt, 'utf-8').toString('base64');
     const safe = safeCwd(cwd);
     const chosenModel = safeModel(model);
     const turnsFlag = maxTurns > 0 ? ` --max-turns ${maxTurns}` : '';
+    // Tier enforcement: read_only disables file-mutation tools at the CLI
+    // permission layer (real guardrail), on top of the prompt preamble.
+    const tierFlags = tierCliFlags(tier);
     // Claude Code running from /tmp does not walk up into /home/ubuntu, so
     // the user-level CLAUDE.md is not loaded — no swap required. This lets
     // multiple parallel calls run without racing on a shared file.
@@ -148,7 +177,7 @@ export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms
       'source ~/.nvm/nvm.sh >/dev/null 2>&1;',
       'nvm use 20 >/dev/null 2>&1;',
       `cd ${safe} &&`,
-      `echo '${b64}' | base64 -d | claude -p --output-format json --model ${chosenModel}${turnsFlag} --no-session-persistence --dangerously-skip-permissions`,
+      `echo '${b64}' | base64 -d | claude -p --output-format json --model ${chosenModel}${turnsFlag}${tierFlags} --no-session-persistence --dangerously-skip-permissions`,
     ].join(' ');
 
     const sshArgs = [
@@ -404,6 +433,8 @@ export async function executeRun({ db, runId, schedule, agents }) {
     cwd: schedule.app_directory || '/tmp',
     model: schedule.model || getSetting('default_model'),
     backend: resolveBackend(schedule),
+    maxTurns: schedule.max_turns ?? getSetting('default_max_turns'),
+    tier,
     runId,
   };
 

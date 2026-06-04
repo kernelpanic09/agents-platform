@@ -54,3 +54,15 @@ export function resolveTier(schedule = {}) {
   if (schedule.safety_tier && SAFETY_TIERS.includes(schedule.safety_tier)) return schedule.safety_tier;
   return schedule.allow_writes ? 'controlled_write' : 'read_only';
 }
+
+/**
+ * Technical enforcement for a tier: extra `claude` CLI flags appended to the
+ * dispatch command. The prompt preamble above remains as defense-in-depth, but
+ * read_only is no longer a request — the file-mutation tools are disabled at
+ * the CLI permission layer. (Bash stays available for kubectl/read commands and
+ * remains governed by the preamble; document this boundary honestly.)
+ */
+export function tierCliFlags(tier) {
+  if (tier === 'read_only') return ' --disallowedTools Write,Edit,MultiEdit,NotebookEdit';
+  return '';
+}

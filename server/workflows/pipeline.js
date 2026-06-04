@@ -1,6 +1,6 @@
 import vm from 'vm';
 import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
-import { buildAgentPrompt, runClaude, parseClaudeJson, extractSummary, resolveInference } from '../executor.js';
+import { buildAgentPrompt, runClaude, parseClaudeJson, extractSummary, extractVerdict, resolveInference } from '../executor.js';
 import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
 import { IS_DEMO } from '../demo.js';
@@ -12,16 +12,22 @@ import { IS_DEMO } from '../demo.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Evaluate an edge condition against a node's output in a sandboxed context.
- * The expression sees only `output` and `summary` (plain strings) — no Node
- * globals, no require/process — and is hard-bounded to 50ms. Empty condition
- * means "always" (the default/else edge). Any error evaluates to false.
+ * Evaluate an edge condition against a node's result in a sandboxed context.
+ * The expression sees only `output` and `summary` (plain strings) plus
+ * `verdict` ('ok' | 'attention' | 'critical' | null, parsed from the agent's
+ * structured STATUS line) — no Node globals, no require/process — and is
+ * hard-bounded to 50ms. Empty condition means "always" (the default/else
+ * edge). Any error evaluates to false.
  */
 export function evalEdgeCondition(condition, ctx = {}) {
   const expr = String(condition || '').trim();
   if (!expr) return true;
   try {
-    const sandbox = { output: String(ctx.output ?? ''), summary: String(ctx.summary ?? '') };
+    const sandbox = {
+      output: String(ctx.output ?? ''),
+      summary: String(ctx.summary ?? ''),
+      verdict: ctx.verdict ?? null,
+    };
     return Boolean(vm.runInNewContext(`(${expr})`, sandbox, { timeout: 50, displayErrors: false }));
   } catch {
     return false;
@@ -35,11 +41,11 @@ export function computeRoots(graphDef) {
   return nodes.filter(n => !hasIncoming.has(n.id)).map(n => n.id);
 }
 
-/** Targets to route to from a node given its output (conditions evaluated in order). */
-export function routeFromNode(graphDef, nodeId, output, summary) {
+/** Targets to route to from a node given its result (conditions evaluated in order). */
+export function routeFromNode(graphDef, nodeId, output, summary, verdict = null) {
   const targets = [];
   for (const e of (graphDef?.edges || [])) {
-    if (e.from === nodeId && evalEdgeCondition(e.condition, { output, summary })) targets.push(e.to);
+    if (e.from === nodeId && evalEdgeCondition(e.condition, { output, summary, verdict })) targets.push(e.to);
   }
   return [...new Set(targets)];
 }
@@ -99,6 +105,7 @@ const PipelineState = Annotation.Root({
   task: Annotation({ reducer: (_, v) => v, default: () => '' }),
   outputs: Annotation({ reducer: (p, v) => ({ ...p, ...v }), default: () => ({}) }),
   summaries: Annotation({ reducer: (p, v) => ({ ...p, ...v }), default: () => ({}) }),
+  verdicts: Annotation({ reducer: (p, v) => ({ ...p, ...v }), default: () => ({}) }),
 });
 
 /**
@@ -122,7 +129,7 @@ export function buildPipelineGraph(graphDef, nodeRunner) {
     const pathMap = { [END]: END };
     for (const t of [...new Set(out.map(e => e.to))]) pathMap[t] = t;
     g.addConditionalEdges(node.id, (state) => {
-      const targets = routeFromNode(graphDef, node.id, state.outputs[node.id] || '', state.summaries[node.id] || '');
+      const targets = routeFromNode(graphDef, node.id, state.outputs[node.id] || '', state.summaries[node.id] || '', (state.verdicts || {})[node.id] ?? null);
       return targets.length ? targets : END;
     }, pathMap);
   }
@@ -187,6 +194,7 @@ export async function executePipelineRun({ db, pipeline, task, pipelineRunId }) 
     const { stdout, stderr, exitCode, timedOut } = await runClaude(prompt, {
       cwd: '/tmp', model: inf.model || node.model || defaultModel,
       temperature: inf.temperature, maxTokens: inf.maxTokens, backend, agentId: agent.id,
+      tier: 'read_only', maxTurns: getSetting('default_max_turns'),
     });
 
     if (timedOut || exitCode !== 0) {
@@ -201,9 +209,10 @@ export async function executePipelineRun({ db, pipeline, task, pipelineRunId }) 
     const parsed = parseClaudeJson(stdout);
     const text = parsed.result || stdout;
     const summary = extractSummary(text);
-    nodeStates[node.id] = { ...nodeStates[node.id], status: 'success', summary: summary.slice(0, 300) }; persistNodes();
-    emitRunEvent(channel, { type: 'agent_done', node: node.id, status: 'success', summary: summary.slice(0, 300) });
-    return { outputs: { [node.id]: text }, summaries: { [node.id]: summary } };
+    const verdict = extractVerdict(text);
+    nodeStates[node.id] = { ...nodeStates[node.id], status: 'success', summary: summary.slice(0, 300), verdict }; persistNodes();
+    emitRunEvent(channel, { type: 'agent_done', node: node.id, status: 'success', summary: summary.slice(0, 300), verdict });
+    return { outputs: { [node.id]: text }, summaries: { [node.id]: summary }, verdicts: { [node.id]: verdict } };
   };
 
   let status = 'success', errorMessage = null, finalOutputs = {};

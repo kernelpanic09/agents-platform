@@ -36,6 +36,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
   const [model, setModel] = useState('');
   const [executionBackend, setExecutionBackend] = useState('');
   const [safetyTier, setSafetyTier] = useState('read_only');
+  const [maxTurns, setMaxTurns] = useState('');
   const [appsList, setAppsList] = useState([]);
   const [previewStep, setPreviewStep] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -144,6 +145,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
           model: model || null,
           execution_backend: executionBackend || null,
           safety_tier: safetyTier,
+          max_turns: maxTurns && parseInt(maxTurns, 10) > 0 ? parseInt(maxTurns, 10) : null,
         }),
       });
       const body = await res.json();
@@ -206,6 +208,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
               model: model || null,
               execution_backend: executionBackend || null,
               safety_tier: safetyTier,
+              max_turns: maxTurns && parseInt(maxTurns, 10) > 0 ? parseInt(maxTurns, 10) : null,
             }}
             agents={selectedAgents}
           />
@@ -425,11 +428,25 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
             </div>
             <p className="text-xs text-zinc-500 mt-2">
               {safetyTier === 'read_only'
-                ? 'Agents may only investigate — no writes (the default guardrail).'
+                ? 'Enforced: file-edit tools are disabled at the CLI permission layer; shell stays read-governed by policy.'
                 : safetyTier === 'controlled_write'
-                ? 'Scoped, reversible writes allowed; destructive commands stay blocked.'
-                : 'Broad changes under human oversight; mass/irreversible destruction stays blocked.'}
+                ? 'Scoped, reversible writes allowed; destructive commands stay blocked by policy.'
+                : 'Dispatch requires operator approval: the run holds in pending_approval until approved.'}
             </p>
+          </div>
+
+          {/* Turn limit */}
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Max agent turns</label>
+            <input
+              type="number"
+              min="0"
+              value={maxTurns}
+              onChange={e => setMaxTurns(e.target.value)}
+              placeholder="Platform default (0 = unlimited)"
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-white/10 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+            />
+            <p className="text-xs text-zinc-500 mt-1">Hard cap on agentic turns per dispatch — runaway protection. Leave blank to inherit the platform setting.</p>
           </div>
 
           {/* Task prompt */}

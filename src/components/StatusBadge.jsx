@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Loader, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Loader, Clock, ShieldQuestion, Ban } from 'lucide-react';
 
 // Run-status pill. Teal = in-progress (the secondary accent), green = success,
 // red/orange = failed/timeout, muted = queued.
@@ -8,6 +8,8 @@ const STATUS = {
   timeout: { Icon: XCircle,     label: 'timeout', cls: 'bg-orange-500/10 text-orange-300 border-orange-500/25' },
   running: { Icon: Loader,      label: 'running', cls: 'bg-teal-500/15 text-teal-300 border-teal-500/40', spin: true },
   queued:  { Icon: Clock,       label: 'queued',  cls: 'bg-zinc-700/40 text-zinc-300 border-white/10' },
+  pending_approval: { Icon: ShieldQuestion, label: 'needs approval', cls: 'bg-amber-500/10 text-amber-300 border-amber-500/30' },
+  rejected: { Icon: Ban,        label: 'rejected', cls: 'bg-zinc-700/40 text-zinc-400 border-white/10' },
 };
 
 export default function StatusBadge({ status }) {

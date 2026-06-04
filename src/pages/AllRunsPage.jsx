@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { History, ArrowLeft } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import VerdictBadge from '../components/VerdictBadge';
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'All' },
@@ -10,6 +11,7 @@ const STATUS_FILTERS = [
   { id: 'timeout', label: 'Timeout' },
   { id: 'running', label: 'Running' },
   { id: 'queued', label: 'Queued' },
+  { id: 'pending_approval', label: 'Needs approval' },
 ];
 
 function formatDuration(ms) {
@@ -134,7 +136,7 @@ export default function AllRunsPage() {
                 <tr key={r.id} className={`border-b border-white/5 last:border-0 transition-colors hover:bg-teal-500/[0.04] ${r.status === 'running' || r.status === 'queued' ? 'bg-teal-500/[0.05]' : ''}`}>
                   <td className="px-4 py-3">
                     <Link to={`/schedules/runs/${r.id}`}>
-                      <StatusBadge status={r.status} />
+                      <span className="inline-flex items-center gap-1.5"><StatusBadge status={r.status} /><VerdictBadge verdict={r.verdict} /></span>
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-zinc-200">

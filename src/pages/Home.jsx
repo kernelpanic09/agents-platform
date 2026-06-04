@@ -141,7 +141,7 @@ export default function Home() {
           Agent Directory
         </h1>
         <p className="text-zinc-400 text-lg max-w-xl mx-auto">
-          AI-powered specialists for homelab operations. Each agent has unique skills, tools, and expertise.
+          Agent roster for scheduled infrastructure operations. Each agent defines a system prompt, inference profile, and knowledge sources.
         </p>
       </div>
 

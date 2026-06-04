@@ -228,7 +228,7 @@ export default function PipelineDetailPage() {
                   <button onClick={() => removeEdge(i)} className="p-1 text-zinc-500 hover:text-red-300"><Trash2 size={13} /></button>
                 </div>
                 <input value={e.condition || ''} onChange={ev => updateEdge(i, { condition: ev.target.value })}
-                  placeholder="condition (blank = always) e.g. output.includes('CRITICAL')"
+                  placeholder="condition (blank = always), e.g. verdict === 'critical' or output.includes('OOM')"
                   className="w-full px-2 py-1 rounded bg-zinc-900 border border-white/10 text-xs font-mono text-violet-200 placeholder-zinc-600 focus:outline-none focus:border-violet-500" />
               </div>
             ))}

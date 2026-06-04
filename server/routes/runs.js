@@ -14,7 +14,7 @@ export default function runsRouter(db, scheduler) {
   const router = Router();
 
   const stmtList = db.prepare(`
-    SELECT r.id, r.schedule_id, r.mode, r.status, r.started_at, r.finished_at,
+    SELECT r.id, r.schedule_id, r.mode, r.status, r.verdict, r.started_at, r.finished_at,
            r.duration_ms, r.summary, r.error_message, r.created_at,
            s.name AS schedule_name
     FROM runs r
@@ -98,6 +98,28 @@ export default function runsRouter(db, scheduler) {
       if (ev.type === 'done') { clearInterval(keepalive); unsub(); res.end(); }
     });
     req.on('close', () => { clearInterval(keepalive); unsub(); });
+  });
+
+  // POST /api/runs/:id/approve — release a supervised-tier run held for approval.
+  router.post('/:id/approve', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid run ID' });
+    const run = stmtGet.get(id);
+    if (!run) return res.status(404).json({ error: 'Run not found' });
+    if (run.status !== 'pending_approval') return res.status(409).json({ error: `Run is ${run.status}, not pending_approval` });
+    if (!scheduler || !scheduler.requeue(id)) return res.status(500).json({ error: 'Could not queue run' });
+    res.json({ run_id: id, status: 'queued' });
+  });
+
+  // POST /api/runs/:id/reject — decline a held run; terminal state, no dispatch.
+  router.post('/:id/reject', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid run ID' });
+    const run = stmtGet.get(id);
+    if (!run) return res.status(404).json({ error: 'Run not found' });
+    if (run.status !== 'pending_approval') return res.status(409).json({ error: `Run is ${run.status}, not pending_approval` });
+    db.prepare(`UPDATE runs SET status='rejected', finished_at=datetime('now'), error_message='Rejected by operator' WHERE id=?`).run(id);
+    res.json({ run_id: id, status: 'rejected' });
   });
 
   // POST /api/runs/:id/retry — re-queue a finished/dead-lettered run.

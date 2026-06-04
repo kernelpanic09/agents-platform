@@ -217,6 +217,10 @@ export function initDb() {
     db.exec(`ALTER TABLE schedules ADD COLUMN safety_tier TEXT DEFAULT NULL`);
     console.log('[db] migrated: schedules.safety_tier added');
   }
+  if (!schedCols.has('max_turns')) {
+    db.exec(`ALTER TABLE schedules ADD COLUMN max_turns INTEGER DEFAULT NULL`);
+    console.log('[db] migrated: schedules.max_turns added');
+  }
   const traceCols = new Set(db.prepare(`PRAGMA table_info(traces)`).all().map(c => c.name));
   if (!traceCols.has('source')) {
     db.exec(`ALTER TABLE traces ADD COLUMN source TEXT DEFAULT 'api'`);
@@ -232,6 +236,13 @@ export function initDb() {
     db.exec(`ALTER TABLE agents ADD COLUMN source_pack TEXT DEFAULT NULL`);
     console.log('[db] migrated: agents.source_pack added');
   }
+  // Structured run verdicts (parsed STATUS: ok|attention|critical line)
+  const runCols0 = new Set(db.prepare(`PRAGMA table_info(runs)`).all().map(c => c.name));
+  if (!runCols0.has('verdict')) {
+    db.exec(`ALTER TABLE runs ADD COLUMN verdict TEXT DEFAULT NULL`);
+    console.log('[db] migrated: runs.verdict added');
+  }
+
   // Durable job queue + retry/backoff (P3)
   const runCols = new Set(db.prepare(`PRAGMA table_info(runs)`).all().map(c => c.name));
   for (const [col, def] of [['attempt', 'INTEGER NOT NULL DEFAULT 0'], ['max_attempts', 'INTEGER NOT NULL DEFAULT 1'], ['next_attempt_at', 'TEXT']]) {

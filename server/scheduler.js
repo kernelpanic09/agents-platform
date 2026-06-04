@@ -1,6 +1,8 @@
 import cron from 'node-cron';
 import parser from 'cron-parser';
 import { executeRunViaGraph } from './workflows/runner.js';
+import { resolveTier } from './safety-prompt.js';
+import { sendDiscordNotify } from './executor.js';
 import { getSetting } from './settings.js';
 import { checkSloBreach } from './observability/slo.js';
 
@@ -159,12 +161,26 @@ export function createScheduler(db) {
     }
 
     const maxAttempts = 1 + Math.max(0, getSetting('run_max_retries') || 0);
+    // Supervised tier = human-in-the-loop: the run is created but holds in
+    // 'pending_approval' until an operator approves it (claimNext only takes
+    // 'queued'). Approval comes via POST /api/runs/:id/approve.
+    const gated = resolveTier(schedule) === 'supervised';
+    const initialStatus = gated ? 'pending_approval' : 'queued';
     const runResult = db.prepare(`
       INSERT INTO runs (schedule_id, agent_ids, mode, task_prompt, status, max_attempts)
-      VALUES (?, ?, ?, ?, 'queued', ?)
-    `).run(scheduleId, schedule.agent_ids, schedule.mode, prompt, maxAttempts);
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(scheduleId, schedule.agent_ids, schedule.mode, prompt, initialStatus, maxAttempts);
     const runId = runResult.lastInsertRowid;
-    drain();
+    if (gated) {
+      sendDiscordNotify(
+        `Run #${runId} awaiting approval`,
+        `${schedule.name} (supervised tier) requires operator approval before dispatch.`,
+        15105570,
+      ).catch(() => {});
+      console.log(`[scheduler] run ${runId} held for approval (supervised tier)`);
+    } else {
+      drain();
+    }
     return runId;
   }
 
@@ -199,7 +215,7 @@ export function createScheduler(db) {
   function pruneRuns() {
     try {
       const byAge = db.prepare(
-        `DELETE FROM runs WHERE status NOT IN ('running','queued') AND created_at < datetime('now', ?)`
+        `DELETE FROM runs WHERE status NOT IN ('running','queued','pending_approval') AND created_at < datetime('now', ?)`
       ).run(`-${getSetting('retention_max_age_days')} days`);
       const byCount = db.prepare(`
         DELETE FROM runs WHERE id IN (

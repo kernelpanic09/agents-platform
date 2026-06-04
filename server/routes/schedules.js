@@ -35,6 +35,7 @@ function serializeInput(body) {
     model: body.model || null,
     execution_backend: body.execution_backend || null,
     safety_tier: body.safety_tier || null,
+    max_turns: Number.isInteger(body.max_turns) && body.max_turns > 0 ? body.max_turns : null,
   };
 }
 
@@ -106,14 +107,14 @@ export default function schedulesRouter(db, scheduler) {
     FROM runs WHERE schedule_id = ? ORDER BY created_at DESC LIMIT 10
   `);
   const stmtInsert = db.prepare(`
-    INSERT INTO schedules (name, description, agent_ids, mode, task_prompt, cron_expression, recurring, allow_writes, app_directory, model, execution_backend, safety_tier, status, next_run_at)
-    VALUES (@name, @description, @agent_ids, @mode, @task_prompt, @cron_expression, @recurring, @allow_writes, @app_directory, @model, @execution_backend, @safety_tier, 'active', @next_run_at)
+    INSERT INTO schedules (name, description, agent_ids, mode, task_prompt, cron_expression, recurring, allow_writes, app_directory, model, execution_backend, safety_tier, max_turns, status, next_run_at)
+    VALUES (@name, @description, @agent_ids, @mode, @task_prompt, @cron_expression, @recurring, @allow_writes, @app_directory, @model, @execution_backend, @safety_tier, @max_turns, 'active', @next_run_at)
   `);
   const stmtUpdate = db.prepare(`
     UPDATE schedules SET
       name = ?, description = ?, agent_ids = ?, mode = ?, task_prompt = ?,
       cron_expression = ?, recurring = ?, allow_writes = ?,
-      app_directory = ?, model = ?, execution_backend = ?, safety_tier = ?,
+      app_directory = ?, model = ?, execution_backend = ?, safety_tier = ?, max_turns = ?,
       status = ?, next_run_at = ?,
       updated_at = datetime('now')
     WHERE id = ?
@@ -193,6 +194,7 @@ export default function schedulesRouter(db, scheduler) {
       model: req.body.model !== undefined ? (req.body.model || null) : existing.model,
       execution_backend: req.body.execution_backend !== undefined ? (req.body.execution_backend || null) : existing.execution_backend,
       safety_tier: newTier,
+      max_turns: req.body.max_turns !== undefined ? (Number.isInteger(req.body.max_turns) && req.body.max_turns > 0 ? req.body.max_turns : null) : existing.max_turns,
       status: req.body.status ?? existing.status,
     };
     const next = nextRunAt(merged.cron_expression);
@@ -200,7 +202,7 @@ export default function schedulesRouter(db, scheduler) {
     stmtUpdate.run(
       merged.name, merged.description, merged.agent_ids, merged.mode, merged.task_prompt,
       merged.cron_expression, merged.recurring, merged.allow_writes,
-      merged.app_directory, merged.model, merged.execution_backend, merged.safety_tier,
+      merged.app_directory, merged.model, merged.execution_backend, merged.safety_tier, merged.max_turns,
       merged.status, next,
       id,
     );

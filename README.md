@@ -21,7 +21,7 @@ It ships with 20 pre-built agent personas covering infrastructure, development, 
 
 The platform was built in five planned phases (visibility → configurability → trust → self-improvement → composability); the full roadmap, meeting notes, and prioritization live in [`docs/planning/`](docs/planning/).
 
-> ### 💡 Why SSH + a terminal instead of the Anthropic API?
+> ### Why SSH + a terminal instead of the Anthropic API?
 >
 > By design, the platform runs each agent by opening an **SSH session to a host that has Claude Code installed and spawning `claude -p` in a terminal** - rather than calling the Anthropic API. That host's **Claude subscription** powers the run, so executing agents consumes subscription tokens and incurs **no per-token API charges**. For a self-hosted, always-on agent fleet (scheduled audits, multi-agent runs), this keeps operating cost minimal.
 >
@@ -49,13 +49,16 @@ The platform was built in five planned phases (visibility → configurability �
 - **Saved Crews** - named, reusable agent teams with a topology (fan / chain / round-table), one-click run or schedule, plus suggested crews derived from the related-agents graph
 - Cron scheduling with configurable concurrency; per-run Discord notifications
 
-### 3. Live Run Theater
+### 3. Live Run Streaming
 - Every run streams **per-agent lifecycle events over SSE**: watch agents start, work, and report in real time instead of waiting on a spinner
 - Pipeline runs overlay live node status (pending / running / success / failed) directly on the DAG
 - Finished runs replay from history; mid-run viewers catch up from a buffered event stream
 
 ### 4. Trust & Governance
-- **Tiered safety policy engine** - every run executes under an explicit tier (`read_only` / `controlled_write` / `supervised`) that shapes the safety preamble injected into each agent prompt
+- **Enforced safety tiers** - `read_only` disables the file-mutation tools (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`) at the CLI permission layer, not just in the prompt; the policy preamble remains as defense-in-depth (shell commands stay policy-governed - documented boundary)
+- **Human-in-the-loop approval gate** - `supervised`-tier runs hold in `pending_approval` and notify the operator; nothing dispatches until explicitly approved (or rejected) from the run page
+- **Turn limits** - a hard cap on agentic turns per dispatch (`--max-turns`), settable per schedule or as a platform default; runaway protection that is enforced, not advisory
+- **Structured run verdicts** - every agent must end with `STATUS: ok|attention|critical`; the parsed verdict is stored per run, surfaced as severity badges, and available to pipeline routing (`verdict === 'critical'`)
 - **Scoped API keys** (`read` → `trigger` → `write` → `admin`, SHA-256 hashed) protecting the external trigger surface
 - **Inbound webhooks** - `POST /api/webhooks/:token` fires a schedule from Prometheus alerts, git pushes, or n8n flows, with payload interpolation into the task prompt
 - **Durable job queue** - the runs table is the queue: crash recovery re-queues orphaned runs on boot, failed runs retry with exponential backoff, exhausted runs land in a dead-letter state with one-click re-queue
@@ -255,6 +258,7 @@ docker compose exec ollama ollama pull nomic-embed-text
 | `MAX_PARALLEL_PER_RUN` | `3` | Max agents dispatched simultaneously within one parallel run |
 | `RUN_TIMEOUT_MS` | `900000` | Per-dispatch timeout (15 min) |
 | `RUN_MAX_RETRIES` | `0` | Auto-retries (with backoff) for failed/timed-out runs; exhausted runs dead-letter |
+| `DEFAULT_MAX_TURNS` | `0` | Hard cap on agentic turns per dispatch (0 = unlimited); schedules can override |
 | `RETENTION_MAX_RUNS_PER_SCHEDULE` | `200` | Keep newest N runs per schedule (pruned nightly) |
 | `RETENTION_MAX_AGE_DAYS` | `90` | Drop finished runs older than this |
 | `DISCORD_WEBHOOK_URL` | _(optional)_ | Discord webhook for run + SLO-breach notifications |
@@ -330,6 +334,8 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `GET` | `/api/runs/:id` | Run detail with stdout |
 | `GET` | `/api/runs/:id/stream` | **SSE** - live per-agent events (replays finished runs) |
 | `POST` | `/api/runs/:id/retry` | Re-queue a finished / dead-lettered run |
+| `POST` | `/api/runs/:id/approve` | Release a supervised-tier run held for approval |
+| `POST` | `/api/runs/:id/reject` | Decline a held run (terminal, never dispatches) |
 
 ### Pipelines (DAG)
 | Method | Path | Description |
@@ -426,7 +432,7 @@ agents-platform/
 │   ├── demo.js                 # Demo mode seed data
 │   ├── executor.js             # Backend-agnostic dispatch (SSH + API), prompts, telemetry
 │   ├── scheduler.js            # Durable run queue, cron, retries, retention, SLO monitor
-│   ├── run-stream.js           # SSE event registry w/ replay buffer (Live Run Theater)
+│   ├── run-stream.js           # SSE event registry w/ replay buffer (live run streaming)
 │   ├── settings.js             # Live settings: DB override > env seed > default
 │   ├── api-keys.js             # Scoped API keys (SHA-256, scope middleware)
 │   ├── packs.js                # Agent-pack YAML export/import + agency adoption

@@ -1,6 +1,6 @@
 import { routeTask } from './router.js';
 import { buildRagGraph, buildRoutedGraph, buildSshGraph } from './graphs.js';
-import { buildAgentPrompt, buildMeetingPrompt, runClaude, resolveBackend, resolveInference, extractSummary, parseClaudeJson, sendDiscordNotify } from '../executor.js';
+import { buildAgentPrompt, buildMeetingPrompt, runClaude, resolveBackend, resolveInference, extractSummary, extractVerdict, worstVerdict, parseClaudeJson, sendDiscordNotify } from '../executor.js';
 import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
 import { resolveTier } from '../safety-prompt.js';
@@ -23,12 +23,15 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   let errorMessage = null;
   let exitCode = 0;
   let steps = [];
+  const verdicts = [];
 
   const tier = resolveTier(schedule);
   const runOpts = {
     cwd: schedule.app_directory || '/tmp',
     model: schedule.model || getSetting('default_model'),
     backend: resolveBackend(schedule),
+    maxTurns: schedule.max_turns ?? getSetting('default_max_turns'),
+    tier,
     runId,
   };
 
@@ -64,6 +67,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
       transcript = stdout;
       const parsed = parseClaudeJson(stdout);
       summary = extractSummary(parsed.result);
+      verdicts.push(extractVerdict(parsed.result));
       emitRunEvent(runId, { type: 'agent_done', agent: 'Meeting', status: timedOut ? 'timeout' : ec === 0 ? 'success' : 'failed', summary });
       steps.push({ name: 'meeting', status: timedOut ? 'timeout' : ec === 0 ? 'done' : 'failed' });
     } else if (agents.length === 1) {
@@ -92,6 +96,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
 
       summary = result.summary || '';
       transcript = result.result || '';
+      verdicts.push(extractVerdict(transcript));
       steps.push(...(result.steps ? (Array.isArray(result.steps) ? result.steps : [result.steps]) : []));
       if (result.error) { status = 'failed'; errorMessage = result.error; }
       emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: result.error ? 'failed' : 'success', summary });
@@ -108,6 +113,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
           if (ec !== 0) { status = 'failed'; errorMessage = `Agent ${agent.name} exited ${ec}`; outputs[agent.name] = '[failed]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'failed' }); break; }
           const parsed = parseClaudeJson(stdout);
           outputs[agent.name] = parsed.result || stdout;
+          verdicts.push(extractVerdict(parsed.result || stdout));
           prior = parsed.result || stdout;
           emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'success', summary: extractSummary(parsed.result || stdout) });
         }
@@ -126,7 +132,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
           for (const r of batchResults) {
             if (r.timedOut) { outputs[r.agent.name] = '[timed out]'; status = 'failed'; }
             else if (r.exitCode !== 0) { outputs[r.agent.name] = `[exit ${r.exitCode}]`; status = 'failed'; }
-            else { const parsed = parseClaudeJson(r.stdout); outputs[r.agent.name] = parsed.result || r.stdout; }
+            else { const parsed = parseClaudeJson(r.stdout); outputs[r.agent.name] = parsed.result || r.stdout; verdicts.push(extractVerdict(parsed.result || r.stdout)); }
           }
         }
       }
@@ -150,10 +156,10 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
     UPDATE runs SET
       status = ?, finished_at = ?, duration_ms = ?,
       summary = ?, transcript = ?, per_agent_output = ?,
-      exit_code = ?, error_message = ?
+      exit_code = ?, error_message = ?, verdict = ?
     WHERE id = ?
   `).run(status, finishedAt, durationMs, summary || '', transcript || '',
-    perAgentOutput ? JSON.stringify(perAgentOutput) : null, exitCode, errorMessage, runId);
+    perAgentOutput ? JSON.stringify(perAgentOutput) : null, exitCode, errorMessage, worstVerdict(verdicts), runId);
 
   db.prepare(`UPDATE schedules SET last_run_at = ? WHERE id = ?`).run(finishedAt, schedule.id);
 
