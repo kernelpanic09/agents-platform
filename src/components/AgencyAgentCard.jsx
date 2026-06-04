@@ -1,7 +1,18 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { UserPlus, Check, Loader2 } from 'lucide-react';
 
-export default memo(function AgencyAgentCard({ agent, index }) {
+export default memo(function AgencyAgentCard({ agent, index, adopted = false, onAdopt }) {
+  const [busy, setBusy] = useState(false);
+
+  const adopt = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (busy || adopted || !onAdopt) return;
+    setBusy(true);
+    try { await onAdopt(agent); } finally { setBusy(false); }
+  };
+
   return (
     <Link
       to={`/agency/${agent.id}`}
@@ -59,6 +70,25 @@ export default memo(function AgencyAgentCard({ agent, index }) {
             {agent.description}
           </p>
         </div>
+      </div>
+
+      {/* Adopt action — copies this catalog agent into the runnable roster */}
+      <div className="mt-4 flex items-center justify-between">
+        <span className="text-[11px] text-zinc-600">read-only catalog entry</span>
+        {adopted ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg border border-teal-500/25 bg-teal-500/10 text-teal-300">
+            <Check size={11} /> in roster
+          </span>
+        ) : (
+          <button
+            onClick={adopt}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-zinc-300 hover:border-teal-500/40 hover:text-teal-300 transition-colors disabled:opacity-50"
+            title="Copy into the runnable roster (schedulable, crewable, pipeline-ready)"
+          >
+            {busy ? <Loader2 size={11} className="animate-spin" /> : <UserPlus size={11} />} Adopt
+          </button>
+        )}
       </div>
 
       {/* Services preview */}

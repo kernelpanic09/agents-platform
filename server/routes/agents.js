@@ -32,7 +32,7 @@ export default function agentsRouter(db) {
 
   // Prepared statements (cached once, reused per request)
   const stmtListAgents = db.prepare(`
-    SELECT id, name, title, tagline, color, icon_id, category, status,
+    SELECT id, name, title, tagline, color, icon_id, category, status, source_pack,
            skills, tools, mcp_servers, knowledge_sources, example_tasks, related_agents, created_at
     FROM agents ORDER BY id
   `);

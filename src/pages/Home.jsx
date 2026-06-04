@@ -125,6 +125,19 @@ export default function Home() {
     }
   };
 
+  const rosterNames = useMemo(() => new Set(agents.map(a => a.name.toLowerCase())), [agents]);
+
+  const handleAdopt = useCallback(async (agencyAgent) => {
+    const res = await fetch(`/api/agency/${agencyAgent.id}/adopt`, { method: 'POST' });
+    if (res.ok || res.status === 409) {
+      const fresh = await fetch('/api/agents').then(r => r.json()).catch(() => null);
+      if (Array.isArray(fresh)) setAgents(fresh);
+    } else {
+      const b = await res.json().catch(() => ({}));
+      alert(b.error || 'Adopt failed');
+    }
+  }, []);
+
   const currentAgents = tab === 'homelab' ? agents : agencyAgents;
   const categories = tab === 'homelab' ? HOMELAB_CATEGORIES : AGENCY_CATEGORIES;
 
@@ -329,7 +342,7 @@ export default function Home() {
           {filtered.map((agent, i) =>
             tab === 'homelab'
               ? <AgentCard key={agent.id} agent={agent} index={i} stats={agentStats[agent.id]} />
-              : <AgencyAgentCard key={agent.id} agent={agent} index={i} />
+              : <AgencyAgentCard key={agent.id} agent={agent} index={i} adopted={rosterNames.has(agent.name.toLowerCase())} onAdopt={handleAdopt} />
           )}
         </div>
       )}

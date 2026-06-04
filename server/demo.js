@@ -59,5 +59,47 @@ export function seedDemoData(db) {
     }
   }
 
+  // Example of the agency-adoption pattern: a catalog agent copied into the
+  // runnable roster (source_pack provenance), then composed with the built-in
+  // personas in a schedule and a crew. Mirrors what the Adopt button produces.
+  const adoptedName = 'Code Reviewer';
+  if (!db.prepare('SELECT id FROM agents WHERE name = ?').get(adoptedName)) {
+    console.log('[demo] Seeding adopted-agent example (schedule + crew)...');
+    const adopted = db.prepare(`INSERT INTO agents
+      (name, title, tagline, color, icon_id, category, status, skills, tools, mcp_servers, knowledge_sources, example_tasks, related_agents, system_prompt, source_pack)
+      VALUES (?, ?, ?, ?, 'imported', 'development', 'active', ?, '[]', '[]', '[]', '[]', ?, ?, ?)`)
+      .run(
+        adoptedName,
+        'Engineering Specialist',
+        'Reviews diffs and recent commits for correctness, security, and maintainability risks.',
+        '#14B8A6',
+        JSON.stringify(['code review', 'security analysis', 'best practices']),
+        JSON.stringify(['Forge', 'Tempo']),
+        'You are a rigorous senior code reviewer. Examine recent changes for correctness bugs, security issues, and maintainability problems. Be specific: cite files and lines. Rank findings by severity and end with an overall assessment.',
+        'agency:engineering/code-reviewer.md',
+      );
+    const adoptedId = adopted.lastInsertRowid;
+    const idOf = (name) => db.prepare('SELECT id FROM agents WHERE name = ?').get(name)?.id;
+    const team = [adoptedId, idOf('Forge'), idOf('Tempo')].filter(Boolean);
+
+    db.prepare(`INSERT INTO schedules (name, description, agent_ids, mode, task_prompt, cron_expression, recurring, allow_writes, safety_tier, status, next_run_at)
+      VALUES (?, ?, ?, 'sequential', ?, '0 8 * * 1-5', 1, 0, 'read_only', 'paused', NULL)`)
+      .run(
+        'Daily Code Review Sweep',
+        'Adopted catalog reviewer + Forge + Tempo walk recent commits before the workday.',
+        JSON.stringify(team),
+        'Review the most recent commits across the active app repositories. Flag correctness, security, and maintainability issues with file references. Keep it actionable.',
+      );
+
+    db.prepare(`INSERT INTO crews (name, description, agent_ids, topology, task, source)
+      VALUES (?, ?, ?, 'chain', ?, 'manual')`)
+      .run(
+        'Review Board',
+        'Catalog-adopted Code Reviewer chained with Forge and Tempo for pre-merge review.',
+        JSON.stringify(team),
+        'Walk the latest diff as a three-stage review: correctness, then architecture, then release readiness.',
+      );
+  }
+
   console.log('[demo] Sample data seeded');
 }

@@ -102,8 +102,15 @@ export default memo(function AgentCard({ agent, index, stats }) {
 
       {/* Footer meta */}
       <div className="mt-2.5 flex items-center justify-between text-[11px] text-zinc-600">
-        <span className="inline-flex items-center gap-1">
-          <BookOpen size={11} aria-hidden="true" /> {sourceCount} source{sourceCount === 1 ? '' : 's'}
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-flex items-center gap-1">
+            <BookOpen size={11} aria-hidden="true" /> {sourceCount} source{sourceCount === 1 ? '' : 's'}
+          </span>
+          {agent.source_pack?.startsWith('agency:') && (
+            <span className="px-1.5 py-px rounded border border-teal-500/25 bg-teal-500/10 text-teal-400/90 text-[10px] leading-tight" title={`Adopted from the agency catalog (${agent.source_pack})`}>
+              catalog
+            </span>
+          )}
         </span>
         <span className="inline-flex items-center gap-1">
           <Activity size={11} aria-hidden="true" />
