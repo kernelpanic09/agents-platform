@@ -33,6 +33,7 @@ test('extractVerdict: parses the STATUS line in common shapes', () => {
   assert.equal(extractVerdict('...\nSTATUS: ok\nSUMMARY: fine'), 'ok');
   assert.equal(extractVerdict('**STATUS:** critical\nSUMMARY: bad'), 'critical');
   assert.equal(extractVerdict('status: Attention\nSUMMARY: hmm'), 'attention');
+  assert.equal(extractVerdict('STATUS: **critical**\nSUMMARY: bold value'), 'critical'); // regression: live agents bold the value
   assert.equal(extractVerdict('no structured line'), null);
   assert.equal(extractVerdict(''), null);
 });

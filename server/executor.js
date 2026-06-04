@@ -101,7 +101,9 @@ const VERDICTS = ['ok', 'attention', 'critical'];
  */
 export function extractVerdict(resultText) {
   if (!resultText) return null;
-  const m = resultText.match(/^\s*\*{0,2}STATUS:?\*{0,2}\s*(ok|attention|critical)\b/im);
+  // Tolerates markdown emphasis around the label and/or the value
+  // (STATUS: critical, **STATUS:** critical, STATUS: **critical**).
+  const m = resultText.match(/^\s*\*{0,2}STATUS:?\*{0,2}\s*\*{0,2}(ok|attention|critical)\b/im);
   return m ? m[1].toLowerCase() : null;
 }
 
