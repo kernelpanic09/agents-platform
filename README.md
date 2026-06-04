@@ -39,7 +39,7 @@ The platform was built in five planned phases (visibility → configurability �
 - **Adopt from catalog** — copy any read-only agency-catalog agent into the runnable roster with one click (provenance-tagged)
 
 ### 2. Orchestration: Modes, Pipelines, and Crews
-- Runs `claude -p "<prompt>"` on a remote host over SSH (or via the Anthropic API — see [Execution backends](#execution-backends))
+- Runs `claude -p "<prompt>"` on a remote host over SSH — or via the Anthropic API, or **any OpenAI-compatible endpoint incl. local Ollama** (see [Execution backends](#execution-backends))
 - Three composition modes: parallel (fan-out, aggregate), sequential (pipeline), meeting (structured debate)
 - **DAG Pipeline Builder** — compose agents into a directed graph with **conditional edges evaluated against the prior agent's output** (e.g. `output.includes('CRITICAL')`, sandboxed in a `vm` context). Pipelines compile to LangGraph at run time and stream per-node status live onto the graph
 - **Saved Crews** — named, reusable agent teams with a topology (fan / chain / round-table), one-click run or schedule, plus suggested crews derived from the related-agents graph
@@ -241,8 +241,11 @@ docker compose exec ollama ollama pull nomic-embed-text
 | `SSH_TARGET` | _(required for dispatch)_ | Remote host in `user@host` format |
 | `SSH_KEY_PATH` | _(optional)_ | Path to SSH private key |
 | `CLAUDE_MODEL` | `sonnet` | Claude model to use for SSH dispatch |
-| `EXECUTION_BACKEND` | `subscription` | Default run backend: `subscription` (SSH + `claude -p`, no API cost) or `api` (Anthropic API) |
-| `API_MAX_TOKENS` | `8192` | Max output tokens per turn when the `api` backend is used |
+| `EXECUTION_BACKEND` | `subscription` | Default run backend: `subscription` (SSH + `claude -p`, no API cost), `api` (Anthropic API), or `openai` (any OpenAI-compatible endpoint) |
+| `API_MAX_TOKENS` | `8192` | Max output tokens per turn for the `api` / `openai` backends |
+| `OPENAI_BASE_URL` | _(required for `openai` backend)_ | Any OpenAI-compatible base URL, e.g. `http://ollama:11434/v1` for free local models |
+| `OPENAI_API_KEY` | `none` | Bearer token for the OpenAI-compatible endpoint (local servers accept anything) |
+| `OPENAI_MODEL` | `qwen2.5:7b` | Default model for the `openai` backend when a run specifies a Claude alias |
 | `ENABLE_SCHEDULER` | `false` | Enable cron scheduler and manual `/run` endpoint |
 | `MAX_CONCURRENT_RUNS` | `2` | Max runs executing at once (queue concurrency) |
 | `MAX_PARALLEL_PER_RUN` | `3` | Max agents dispatched simultaneously within one parallel run |
@@ -259,15 +262,16 @@ docker compose exec ollama ollama pull nomic-embed-text
 
 Agents can be dispatched through either of two backends. The default keeps operating cost at zero by using a Claude subscription; the API backend trades that for portability.
 
-| Backend | How it runs | Cost | Needs `ANTHROPIC_API_KEY`? | Best for |
-|---------|-------------|------|----------------------------|----------|
+| Backend | How it runs | Cost | Needs a key? | Best for |
+|---------|-------------|------|--------------|----------|
 | `subscription` (default) | SSH to a host running Claude Code, spawns `claude -p` in a terminal | Subscription tokens — **no per-token API charge** | No | A self-hosted box with a Claude subscription; always-on fleets |
-| `api` (opt-in) | Calls the Anthropic API directly (`@anthropic-ai/sdk`) | Pay-per-token | Yes | Headless / cloud runs, or when no subscription host is available |
+| `api` (opt-in) | Calls the Anthropic API directly (`@anthropic-ai/sdk`) | Pay-per-token | `ANTHROPIC_API_KEY` | Headless / cloud runs, or when no subscription host is available |
+| `openai` (opt-in) | Calls any **OpenAI-compatible** `/chat/completions` endpoint (plain `fetch`, no SDK) | Free if pointed at **local Ollama / vLLM**; otherwise provider pricing | `OPENAI_BASE_URL` (+ key for hosted) | Fully-local models, air-gapped runs, or any non-Anthropic provider |
 
 **Selecting a backend** (precedence — most specific wins):
 
-1. **Per-schedule** — set `execution_backend` to `subscription` or `api` on a schedule (also selectable in the "New Schedule" form). `null` inherits the global default.
-2. **Global default** — the `EXECUTION_BACKEND` env var (`subscription` when unset).
+1. **Per-schedule** — set `execution_backend` to `subscription`, `api`, or `openai` on a schedule (also selectable in the "New Schedule" form). `null` inherits the global default.
+2. **Global default** — the `execution_backend` live setting / `EXECUTION_BACKEND` env var (`subscription` when unset).
 
 Both backends return identical run records, and `api`-backend runs are metered into the cost dashboard (tagged `source = api`), so you can compare real spend across backends.
 
@@ -283,7 +287,7 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | UI Components | Lucide React, Recharts, custom SVG avatars |
 | Backend | Node.js, Express.js |
 | Database | SQLite via better-sqlite3 (WAL mode) |
-| AI Orchestration | LangChain, LangGraph, Anthropic SDK |
+| AI Orchestration | LangChain, LangGraph, Anthropic SDK, OpenAI-compatible REST |
 | Vector Store | Qdrant |
 | Embeddings | Ollama (nomic-embed-text) |
 | SSH Dispatch | Native Node.js `child_process` over SSH |

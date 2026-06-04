@@ -26,6 +26,14 @@ const ANTHROPIC_MODEL_MAP = {
 };
 const API_MAX_TOKENS = parseInt(process.env.API_MAX_TOKENS || '8192', 10);
 
+// Third backend: any OpenAI-compatible /chat/completions endpoint. Point it at a
+// local Ollama (http://ollama:11434/v1) for fully-free local models, or at any
+// hosted OpenAI-compatible provider. No SDK needed — plain fetch. Env is read at
+// call time so it can be set per-environment without a rebuild.
+const openaiBaseUrl = () => (process.env.OPENAI_BASE_URL || '').replace(/\/+$/, '');
+const openaiApiKey = () => process.env.OPENAI_API_KEY || 'none'; // local servers accept any token
+const openaiDefaultModel = () => process.env.OPENAI_MODEL || 'qwen2.5:7b';
+
 /**
  * Build the prompt for a single agent in parallel/sequential mode.
  */
@@ -198,7 +206,7 @@ export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms
  */
 export function resolveBackend(schedule = {}) {
   const v = String(schedule.execution_backend || getSetting('execution_backend') || 'subscription').toLowerCase();
-  return v === 'api' ? 'api' : 'subscription';
+  return v === 'api' || v === 'openai' ? v : 'subscription';
 }
 
 /**
@@ -273,13 +281,78 @@ export async function runClaudeApi(prompt, { model = CLAUDE_MODEL, maxTokens = A
   }
 }
 
+/** Map a model alias to the OpenAI-compatible backend: Claude aliases (and the
+ *  empty default) use OPENAI_MODEL; anything else passes through verbatim so
+ *  agents/schedules can name a concrete local or hosted model directly. */
+export function openaiModelId(model) {
+  if (!model || ANTHROPIC_MODEL_MAP[model]) return openaiDefaultModel();
+  return model;
+}
+
 /**
- * Backend-agnostic dispatcher. Selects the SSH (subscription) or Anthropic API
- * backend from `opts.backend`. Both backends return the same result shape, so
- * callers (executeRun, runner.js, the ssh graph node) are backend-agnostic.
+ * Run one agent turn against any OpenAI-compatible /chat/completions endpoint
+ * (local Ollama, vLLM, OpenAI, etc). Same result shape as the other backends.
+ * Pass `_fetch` to inject a stub in tests.
+ */
+export async function runClaudeOpenAI(prompt, { model = '', maxTokens = API_MAX_TOKENS, temperature, timeoutMs = getSetting('run_timeout_ms'), runId = null, agentId = null, _fetch = null } = {}) {
+  const started = Date.now();
+  const baseUrl = openaiBaseUrl();
+  if (!baseUrl) {
+    return { stdout: '', stderr: 'openai backend error: OPENAI_BASE_URL is not set', exitCode: 1, timedOut: false };
+  }
+  const chosenModel = openaiModelId(model);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const doFetch = _fetch || fetch;
+    const resp = await doFetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiApiKey()}` },
+      body: JSON.stringify({
+        model: chosenModel,
+        max_tokens: maxTokens,
+        ...(temperature != null ? { temperature } : {}),
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: controller.signal,
+    });
+    if (!resp.ok) {
+      const detail = (await resp.text().catch(() => '')).slice(0, 300);
+      return { stdout: '', stderr: `openai backend error: HTTP ${resp.status} ${detail}`, exitCode: 1, timedOut: false };
+    }
+    const data = await resp.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const usage = data.usage || {};
+    try {
+      recordTrace({
+        runId, agentId, stepName: 'openai_dispatch', model: chosenModel,
+        inputTokens: usage.prompt_tokens || 0, outputTokens: usage.completion_tokens || 0,
+        latencyMs: Date.now() - started, source: 'openai',
+        inputPreview: prompt, outputPreview: text,
+      });
+    } catch { /* telemetry is best-effort; never fail a run on it */ }
+    return {
+      stdout: JSON.stringify({ result: text, usage: { input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0 }, model: chosenModel, backend: 'openai' }),
+      stderr: '', exitCode: 0, timedOut: false,
+    };
+  } catch (err) {
+    const timedOut = err.name === 'AbortError';
+    return { stdout: '', stderr: `openai backend error: ${timedOut ? 'timed out' : err.message}`, exitCode: 1, timedOut };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Backend-agnostic dispatcher. Selects the SSH (subscription), Anthropic API,
+ * or OpenAI-compatible backend from `opts.backend`. All backends return the
+ * same result shape, so callers (executeRun, runner.js, pipelines) are
+ * backend-agnostic.
  */
 export function runClaude(prompt, opts = {}) {
-  if ((opts.backend || 'subscription') === 'api') return runClaudeApi(prompt, opts);
+  const backend = opts.backend || 'subscription';
+  if (backend === 'api') return runClaudeApi(prompt, opts);
+  if (backend === 'openai') return runClaudeOpenAI(prompt, opts);
   return runClaudeRemote(prompt, opts);
 }
 

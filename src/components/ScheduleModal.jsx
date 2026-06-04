@@ -365,11 +365,12 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
               <Cpu size={12} className="inline mr-1" />
               Execution backend
             </label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {[
                 { id: '', label: 'Default', hint: 'platform setting' },
                 { id: 'subscription', label: 'Subscription', hint: 'SSH · no API cost' },
                 { id: 'api', label: 'Anthropic API', hint: 'pay-per-token' },
+                { id: 'openai', label: 'OpenAI-compat', hint: 'Ollama / vLLM / hosted' },
               ].map(({ id, label, hint }) => (
                 <button
                   key={id || 'default'}
@@ -389,6 +390,8 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
             <p className="text-xs text-zinc-500 mt-1">
               {executionBackend === 'api'
                 ? 'Runs call the Anthropic API directly (requires ANTHROPIC_API_KEY).'
+                : executionBackend === 'openai'
+                ? 'Runs call any OpenAI-compatible endpoint (OPENAI_BASE_URL) — point it at local Ollama for free local models.'
                 : executionBackend === 'subscription'
                 ? 'Runs dispatch over SSH to `claude -p` — uses subscription tokens, no API cost.'
                 : 'Inherit the platform default (the EXECUTION_BACKEND env var).'}

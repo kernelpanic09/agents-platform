@@ -4,7 +4,7 @@ import { isValidCron, nextRunAt, previewNextRuns } from '../scheduler.js';
 const VALID_MODES = ['parallel', 'sequential', 'meeting'];
 const VALID_STATUSES = ['active', 'paused', 'completed'];
 const VALID_MODELS = ['haiku', 'sonnet', 'opus'];
-const VALID_BACKENDS = ['subscription', 'api'];
+const VALID_BACKENDS = ['subscription', 'api', 'openai'];
 const VALID_TIERS = ['read_only', 'controlled_write', 'supervised'];
 // App directories must live under this prefix — no traversal, no absolute paths
 // outside the homelab apps tree.

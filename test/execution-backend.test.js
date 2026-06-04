@@ -71,3 +71,61 @@ test('runClaude routes to the api backend when selected', async () => {
   const res = await runClaude('hi', { backend: 'api', _client: stub });
   assert.equal(parseClaudeJson(res.stdout).result, 'dispatched');
 });
+
+// --- OpenAI-compatible backend (P5 follow-up) ---
+
+import { runClaudeOpenAI, openaiModelId } from '../server/executor.js';
+
+test('resolveBackend accepts openai', () => {
+  assert.equal(resolveBackend({ execution_backend: 'openai' }), 'openai');
+  assert.equal(resolveBackend({ execution_backend: 'OpenAI' }), 'openai');
+});
+
+test('openaiModelId: claude aliases map to the configured default; custom ids pass through', () => {
+  process.env.OPENAI_MODEL = 'llama3.1:8b';
+  assert.equal(openaiModelId('haiku'), 'llama3.1:8b');
+  assert.equal(openaiModelId(''), 'llama3.1:8b');
+  assert.equal(openaiModelId('mistral:7b'), 'mistral:7b'); // verbatim pass-through
+  delete process.env.OPENAI_MODEL;
+});
+
+test('runClaudeOpenAI: clear error when OPENAI_BASE_URL is unset', async () => {
+  delete process.env.OPENAI_BASE_URL;
+  const r = await runClaudeOpenAI('hi');
+  assert.equal(r.exitCode, 1);
+  assert.match(r.stderr, /OPENAI_BASE_URL/);
+});
+
+test('runClaudeOpenAI: maps an OpenAI-shaped response into the common result shape', async () => {
+  process.env.OPENAI_BASE_URL = 'http://ollama:11434/v1/'; // trailing slash trimmed
+  let calledUrl = null, sentBody = null;
+  const _fetch = async (url, opts) => {
+    calledUrl = url; sentBody = JSON.parse(opts.body);
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: 'local model says hi\nSUMMARY: hi' } }],
+        usage: { prompt_tokens: 12, completion_tokens: 7 },
+      }),
+    };
+  };
+  const r = await runClaudeOpenAI('hello there', { model: 'haiku', temperature: 0.2, _fetch });
+  assert.equal(r.exitCode, 0);
+  assert.equal(calledUrl, 'http://ollama:11434/v1/chat/completions');
+  assert.equal(sentBody.temperature, 0.2);
+  const parsed = parseClaudeJson(r.stdout);
+  assert.equal(parsed.result, 'local model says hi\nSUMMARY: hi');
+  assert.equal(parsed.parsed.usage.input_tokens, 12);
+  assert.equal(parsed.parsed.usage.output_tokens, 7);
+  assert.equal(parsed.parsed.backend, 'openai');
+  delete process.env.OPENAI_BASE_URL;
+});
+
+test('runClaude dispatches backend=openai to the OpenAI-compatible path', async () => {
+  process.env.OPENAI_BASE_URL = 'http://stub';
+  const _fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'ok' } }], usage: {} }) });
+  const r = await runClaude('x', { backend: 'openai', _fetch });
+  assert.equal(r.exitCode, 0);
+  assert.equal(parseClaudeJson(r.stdout).result, 'ok');
+  delete process.env.OPENAI_BASE_URL;
+});
