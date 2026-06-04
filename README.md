@@ -40,7 +40,7 @@ The platform was built in five planned phases (visibility â†’ configurability â†
 - Full CRUD via REST API and in-app forms; per-agent accent color and SVG avatar (20 unique illustrations)
 - **Per-agent inference profiles** - model, temperature, and max-tokens overrides applied at execution time
 - **Prompt version history** - every system-prompt edit auto-snapshots the prior version; view, diff, and restore from the agent profile
-- **Adopt from catalog** - copy any read-only agency-catalog agent into the runnable roster with one click (provenance-tagged)
+- **Adopt from catalog** - one-click adoption from a 140+ agent public catalog into the runnable roster; adopted agents carry provenance (`source_pack`) and become schedulable, crewable, and pipeline-ready alongside the built-ins
 
 ### 2. Orchestration: Modes, Pipelines, and Crews
 - Runs `claude -p "<prompt>"` on a remote host over SSH - or via the Anthropic API, or **any OpenAI-compatible endpoint incl. local Ollama** (see [Execution backends](#execution-backends))
@@ -100,22 +100,27 @@ The platform was built in five planned phases (visibility â†’ configurability â†
 The UI is a flat dark dashboard with an amber primary and teal secondary accent (Hanken Grotesk type, status-pill badges - deliberately not the default AI-glassmorphism look).
 
 ### Agent Directory
-![Agent Directory](docs/screenshots/home.png?v=4)
+![Agent Directory](docs/screenshots/home.png?v=5)
 
 The 20-agent roster with search, category filters, and quick-task cards.
 
 ### Pipelines - conditional DAG orchestration
-![Pipeline Builder](docs/screenshots/pipelines.png)
+![Pipeline Builder](docs/screenshots/pipelines.png?v=2)
 
-A real run of the *Incident Triage* pipeline: Sentinel swept the cluster, its output didn't contain `CRITICAL`, so the graph routed to **Mirror** (the else-branch) while **Relay** (the always-edge) fired in parallel - and **Atlas was correctly skipped**. Node statuses stream onto the DAG live over SSE; the builder below edits nodes and conditional edges in place.
+A real run of the *Incident Triage* pipeline with both routing styles in play: Sentinel's sweep contained `CRITICAL`, so the graph escalated to **Atlas** while **Relay** (the always-edge) fired in parallel; Atlas investigated and reported `STATUS: attention`, so the `verdict === 'critical'` edge to the **Incident Response Commander** (an agent adopted from the agency catalog) correctly did not fire. Node labels show each agent's structured verdict; statuses stream onto the DAG live over SSE, and the builder below edits nodes and conditional edges in place.
 
 ### Crews - saved agent teams
-![Crews](docs/screenshots/crews.png)
+![Crews](docs/screenshots/crews.png?v=2)
 
 Reusable teams with fan / chain / round-table topologies, one-click run or schedule, and suggested crews derived from the related-agents graph.
 
+### Agency Catalog and Adoption
+![Agency catalog](docs/screenshots/agency.png)
+
+A 140+ agent catalog synced from a public agent repository. Any entry adopts into the runnable roster with one click (provenance-tagged), after which it is schedulable, crewable, and usable as a pipeline node - the Incident Response Commander in the pipeline above came from here. Demo mode seeds a complete example: an adopted Code Reviewer composed with the built-in personas in a schedule and a crew.
+
 ### Schedules and Runs
-![Schedules](docs/screenshots/schedules.png?v=3)
+![Schedules](docs/screenshots/schedules.png?v=4)
 
 Ten production-grade scheduled workflows spanning all three composition modes - parallel, sequential, and meeting.
 
@@ -321,6 +326,11 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `POST` | `/api/agents/:id/prompt-versions/:vid/restore` | Restore a prior prompt version |
 | `DELETE` | `/api/agents/:id` | Delete agent |
 | `POST` | `/api/agency/:id/adopt` | Copy a catalog agent into the runnable roster |
+
+### Agency Catalog and Adoption
+![Agency catalog](docs/screenshots/agency.png)
+
+A 140+ agent catalog synced from a public agent repository. Any entry adopts into the runnable roster with one click (provenance-tagged), after which it is schedulable, crewable, and usable as a pipeline node - the Incident Response Commander in the pipeline above came from here. Demo mode seeds a complete example: an adopted Code Reviewer composed with the built-in personas in a schedule and a crew.
 
 ### Schedules and Runs
 | Method | Path | Description |
