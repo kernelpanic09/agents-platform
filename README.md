@@ -7,6 +7,10 @@
 
 An AI agent orchestration platform: a roster of agent personas dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop — with full cost/latency observability and platform SLOs.
 
+![Live demo — a real Incident Triage pipeline run: Sentinel sweeps the cluster, flags CRITICAL, and the DAG routes to Atlas live over SSE](docs/screenshots/demo.gif)
+
+*Live capture from the production deployment (3× speed): an Incident Triage pipeline fires, Sentinel sweeps the cluster and flags a `CRITICAL` finding, and the DAG routes to Atlas + Relay in real time — then a tour of Crews and the SLO dashboard.*
+
 ---
 
 ## What is this
