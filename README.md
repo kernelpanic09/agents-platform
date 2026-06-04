@@ -100,7 +100,7 @@ The platform was built in five planned phases (visibility â†’ configurability â†
 The UI is a flat dark dashboard with an amber primary and teal secondary accent (Hanken Grotesk type, status-pill badges - deliberately not the default AI-glassmorphism look).
 
 ### Agent Directory
-![Agent Directory](docs/screenshots/home.png?v=3)
+![Agent Directory](docs/screenshots/home.png?v=4)
 
 The 20-agent roster with search, category filters, and quick-task cards.
 
