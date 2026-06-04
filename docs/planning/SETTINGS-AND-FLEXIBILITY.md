@@ -1,17 +1,17 @@
 # Settings & Flexibility Architecture
 
-> **Companion to [`ROADMAP.md`](./ROADMAP.md) → "Settings Pillars (the Configurability Surface)".** That section names the eight pillars; this document is the *contract* behind them — the full settings surface, a navigable information architecture, the precedence/override resolution model, and a setting-by-setting map of where every knob lives, what it controls, and its default. This is a **planning artifact only**: no code changes are implied by its existence.
+> **Companion to [`ROADMAP.md`](./ROADMAP.md) → "Settings Pillars (the Configurability Surface)".** That section names the eight pillars; this document is the *contract* behind them - the full settings surface, a navigable information architecture, the precedence/override resolution model, and a setting-by-setting map of where every knob lives, what it controls, and its default. This is a **planning artifact only**: no code changes are implied by its existence.
 
 ---
 
 ## Why This Document Exists
 
-The owner's north star is unambiguous: **make agents-platform deeply configurable — lots of custom settings and genuine flexibility — and make that configurability a visible design value, not an afterthought.** ([ROADMAP](./ROADMAP.md) Theme **T4**, Guiding Principle #4.)
+The owner's north star is unambiguous: **make agents-platform deeply configurable - lots of custom settings and genuine flexibility - and make that configurability a visible design value, not an afterthought.** ([ROADMAP](./ROADMAP.md) Theme **T4**, Guiding Principle #4.)
 
 Today the platform fails that bar in three concrete ways, all grounded in the recon:
 
 1. **Configuration is invisible and immovable.** There are **17+ environment variables** (`PORT`, `SSH_TARGET`, `CLAUDE_MODEL`, `MAX_CONCURRENT_RUNS`, `RUN_TIMEOUT_MS`, `DEMO_MODE`, …) and **zero settings UI**. Changing `SSH_TARGET` or the model fallback requires editing a Kubernetes Secret and restarting the pod. To a hiring manager, the app reads as a black box that needs `kubectl` to tune.
-2. **The model surface is a 3-value enum.** `safeModel()` in `executor.js` validates against a hardcoded `[haiku, sonnet, opus]` allowlist, and `MODEL_MAP` in `workflows/graphs.js` pins versioned IDs. A newer Claude release cannot be used without a code deploy, and the **pricing table hardcodes versioned IDs** (`claude-haiku-4-5-…`, etc.) so unknown models silently fall back to Haiku pricing — underreporting cost.
+2. **The model surface is a 3-value enum.** `safeModel()` in `executor.js` validates against a hardcoded `[haiku, sonnet, opus]` allowlist, and `MODEL_MAP` in `workflows/graphs.js` pins versioned IDs. A newer Claude release cannot be used without a code deploy, and the **pricing table hardcodes versioned IDs** (`claude-haiku-4-5-…`, etc.) so unknown models silently fall back to Haiku pricing - underreporting cost.
 3. **Two configuration knobs are ghosts.** `schedules.allow_writes` is stored, displayed, and Zod-validated but **never read** by `executor.js` or `workflows/runner.js`. The `cost_budgets` table is declared in `db.js` with `daily_limit_usd` / `monthly_limit_usd` / `alert_threshold` but has **no routes, no enforcement, no UI**. Both signal unfinished work to any reviewer (ROADMAP Principle #3: *no ghost schema*).
 
 This document specifies the system that closes all three gaps: a **live, DB-backed settings layer** where env vars seed defaults and database values override at runtime *without a redeploy*, organized into a navigable tree, resolved through a deterministic precedence chain, and exposed as the platform's most legible proof that it was *designed to be operated*.
@@ -29,13 +29,13 @@ These extend the ROADMAP's five guiding principles to the specific domain of con
 | # | Principle | Consequence |
 |---|---|---|
 | **S1** | **Env seeds, DB overrides, request refines.** | Env vars provide first-boot defaults; a `platform_settings` row overrides at runtime without restart; per-agent / per-schedule / per-run values refine further down the chain. |
-| **S2** | **Every hardcoded constant is a candidate knob.** | The 3-value model enum, the `MAX_PARALLEL_PER_RUN=3` batch size, the 3 meeting rounds, the 4000-char SUMMARY cap, the pricing table — all become settings, not source edits. |
+| **S2** | **Every hardcoded constant is a candidate knob.** | The 3-value model enum, the `MAX_PARALLEL_PER_RUN=3` batch size, the 3 meeting rounds, the 4000-char SUMMARY cap, the pricing table - all become settings, not source edits. |
 | **S3** | **Deterministic precedence, always.** | A single resolver (`resolveSetting(key, ctx)`) computes the effective value for any key given a `{agent, schedule, run}` context. No scattered `process.env.X ?? default` reads. |
 | **S4** | **Inherit by default, override by exception.** | A schedule with no model uses the agent's; an agent with no model uses the platform default. Overriding is opt-in and always visible as a badge in the UI. |
 | **S5** | **No ghost knobs.** | A setting that exists is wired. `allow_writes` becomes a real safety tier; `cost_budgets` becomes real enforcement. If we cannot wire it this cycle, we do not ship the column. |
-| **S6** | **Settings are portable artifacts.** | Platform settings, safety policies, agent profiles, and themes all export to YAML/JSON and import back — generalizing the existing `agency-sync` ingest pattern (T8). Configuration is GitOps-able. |
+| **S6** | **Settings are portable artifacts.** | Platform settings, safety policies, agent profiles, and themes all export to YAML/JSON and import back - generalizing the existing `agency-sync` ingest pattern (T8). Configuration is GitOps-able. |
 | **S7** | **Safe-to-edit-live vs. requires-restart is explicit.** | Each setting declares `editable_live` and `requires_restart`. The UI never lets a user think a change took effect when it did not (e.g. `PORT` needs a restart; `MAX_CONCURRENT_RUNS` does not). |
-| **S8** | **Secrets never become settings.** | `ANTHROPIC_API_KEY`, `SSH_KEY_PATH`, webhook secrets, API-key hashes stay in K8s Secrets / dedicated encrypted stores — never in the editable `platform_settings` table or any export. |
+| **S8** | **Secrets never become settings.** | `ANTHROPIC_API_KEY`, `SSH_KEY_PATH`, webhook secrets, API-key hashes stay in K8s Secrets / dedicated encrypted stores - never in the editable `platform_settings` table or any export. |
 
 ---
 
@@ -60,7 +60,7 @@ These are the durable categories from the [ROADMAP](./ROADMAP.md). This document
 
 ## Settings Information Architecture (the Navigable Tree)
 
-A single **`/settings`** route is the operator control plane. It is organized as a left-rail tree that mirrors the eight pillars, with entity-scoped settings *also* reachable in-context (e.g. an agent's inference profile is editable both under **Settings → Agents** and on the **Agent Profile** page itself — same backend, two entry points).
+A single **`/settings`** route is the operator control plane. It is organized as a left-rail tree that mirrors the eight pillars, with entity-scoped settings *also* reachable in-context (e.g. an agent's inference profile is editable both under **Settings → Agents** and on the **Agent Profile** page itself - same backend, two entry points).
 
 ```
 /settings
@@ -75,7 +75,7 @@ A single **`/settings`** route is the operator control plane. It is organized as
 ├── Models                                     [Pillar 1 + 2]
 │   ├── Allowlist         comma-separated model IDs (extends haiku/sonnet/opus)
 │   ├── Default model     CLAUDE_MODEL fallback
-│   ├── Pricing table     per-model input/output $/1k  (editable — no code deploy)
+│   ├── Pricing table     per-model input/output $/1k  (editable - no code deploy)
 │   └── Inference defaults temperature, max_tokens, top_p, extended-thinking (platform floor)
 │
 ├── Agents                                     [Pillar 2 · per-agent]
@@ -139,7 +139,7 @@ A single **`/settings`** route is the operator control plane. It is organized as
 - **Two entry points, one source of truth.** Entity-scoped panels (Agents, Schedules) appear under `/settings` *and* on the entity's own page. Both `PUT` the same backend; there is no second store.
 - **Effective-value badges everywhere.** Any field showing an *inherited* value renders an "inherited from <scope>" badge; overriding flips it to an "override" badge. The user always knows which layer is winning (Principle S4).
 - **Live vs. restart is visually distinct.** Fields tagged `requires_restart` show a restart-pill and a "queued for next restart" state after save; `editable_live` fields apply immediately (Principle S7).
-- **Search across the tree.** A settings search box ("Cmd+K in settings") jumps to any knob by key or description — important once the surface is large.
+- **Search across the tree.** A settings search box ("Cmd+K in settings") jumps to any knob by key or description - important once the surface is large.
 
 ---
 
@@ -158,22 +158,22 @@ The heart of the flexibility story is a **deterministic 5-layer resolution chain
 
 > **Canonical chain (per the brief):** `global < workspace < agent < schedule < run`, sitting atop the env-seeded **code default**. Higher layers win. A `null`/unset value at any layer means "inherit from the layer below."
 
-\* **Workspace** is included as a first-class layer in the precedence model for forward-compatibility (Ledger's multi-workspace proposal), but it is explicitly **Not Now** for the single-user homelab (see ROADMAP *Not Now* list). Until workspaces ship, the resolver simply skips that layer — the chain degrades cleanly to `global < agent < schedule < run`.
+\* **Workspace** is included as a first-class layer in the precedence model for forward-compatibility (Ledger's multi-workspace proposal), but it is explicitly **Not Now** for the single-user homelab (see ROADMAP *Not Now* list). Until workspaces ship, the resolver simply skips that layer - the chain degrades cleanly to `global < agent < schedule < run`.
 
 ### Resolution Semantics
 
 | Rule | Behavior |
 |------|----------|
-| **Null means inherit** | A `null` / empty value at any layer is transparent — resolution falls through to the next-lower layer. Only a *set* value overrides. |
+| **Null means inherit** | A `null` / empty value at any layer is transparent - resolution falls through to the next-lower layer. Only a *set* value overrides. |
 | **Most-specific wins** | The highest layer with a set value determines the effective value. A run-level model override beats schedule, agent, and global. |
-| **Validation at the resolved value** | The model allowlist is checked against the *resolved* model, not the layer it came from — a run override of an unlisted model is rejected just like a schedule one. |
+| **Validation at the resolved value** | The model allowlist is checked against the *resolved* model, not the layer it came from - a run override of an unlisted model is rejected just like a schedule one. |
 | **Lists merge, scalars replace** | Scalars (model, temperature) replace. Additive lists (`extra_preamble`, `env_overrides`, `denied_commands`) **merge** lower→higher so an agent's base preamble + a schedule's extra both apply. Merge vs. replace is declared per setting. |
 | **Safety is floor-clamped** | Safety is the one inversion: a *more permissive* lower layer cannot be overridden to *less* safe by a higher one without explicit gating. The platform `safety_floor` setting clamps the maximum tier any run can reach (e.g. "no run may exceed Controlled-Write unless `SUPERVISED_OVERRIDE` is set"). Safety never silently escalates. |
 | **Explainability** | The resolver can return *why*: `resolveSetting('model', ctx)` → `{ value: 'opus', source: 'schedule', overrides: ['agent:sonnet','global:sonnet'] }`. The UI uses this to render the inheritance badges. |
 
 ### Worked Examples
 
-**Example A — model resolution for one agent in a run**
+**Example A - model resolution for one agent in a run**
 
 | Layer | `model` value | Notes |
 |-------|--------------|-------|
@@ -184,7 +184,7 @@ The heart of the flexibility story is a **deterministic 5-layer resolution chain
 | run (one-shot override) | `opus` | operator escalated this run |
 | **→ effective** | **`opus`** | source: `run`; overrides agent+global |
 
-**Example B — safety tier with floor clamp**
+**Example B - safety tier with floor clamp**
 
 | Layer | `safety_tier` | Notes |
 |-------|--------------|-------|
@@ -194,7 +194,7 @@ The heart of the flexibility story is a **deterministic 5-layer resolution chain
 | schedule | `supervised` | user requested full access |
 | **→ effective** | **`controlled_write`** | clamped by `safety_floor`; `supervised` requires `SUPERVISED_OVERRIDE` env + approval gate (T3) |
 
-**Example C — additive merge of preambles**
+**Example C - additive merge of preambles**
 
 | Layer | `extra_preamble` (additive) |
 |-------|------------------------------|
@@ -210,7 +210,7 @@ function resolveSetting(key, ctx /* {agent, schedule, run} */) {
   const layers = [
     codeDefault(key),                 // env-seeded constant
     platformSettings.get(key),        // DB, live-editable
-    ctx.workspace?.[key],             // Not Now — skipped until workspaces ship
+    ctx.workspace?.[key],             // Not Now - skipped until workspaces ship
     ctx.agent?.[key],
     ctx.schedule?.[key],
     ctx.run?.[key],
@@ -227,27 +227,27 @@ function resolveSetting(key, ctx /* {agent, schedule, run} */) {
 }
 ```
 
-Every dispatch path (`executor.js`, `workflows/runner.js`, `eval/runner.js`, `rag/chat.js`) consumes `resolveSetting()` instead of reading env or hardcoded constants — collapsing today's duplicated `executor.js` / `runner.js` logic into one resolution point (addresses the recon's "duplicate execution logic" smell).
+Every dispatch path (`executor.js`, `workflows/runner.js`, `eval/runner.js`, `rag/chat.js`) consumes `resolveSetting()` instead of reading env or hardcoded constants - collapsing today's duplicated `executor.js` / `runner.js` logic into one resolution point (addresses the recon's "duplicate execution logic" smell).
 
 ---
 
 ## Extensibility Points (How the Platform Stays Flexible Over Time)
 
-Configurability is not just knobs — it is **seams that let an operator add capability without a code deploy.** Each extensibility point reuses an existing primitive so it stays buildable by one engineer.
+Configurability is not just knobs - it is **seams that let an operator add capability without a code deploy.** Each extensibility point reuses an existing primitive so it stays buildable by one engineer.
 
 | Extensibility point | What it lets you add | Reuses | Phase |
 |---|---|---|---|
-| **Model allowlist + pricing table** | A newer Claude model (free-text ID) with correct cost accounting, by editing a settings row — not `executor.js`/`graphs.js` | `platform_settings` | P2 |
+| **Model allowlist + pricing table** | A newer Claude model (free-text ID) with correct cost accounting, by editing a settings row - not `executor.js`/`graphs.js` | `platform_settings` | P2 |
 | **Safety policies as artifacts** | A new named permission tier (e.g. "media-stack-write, no kubectl") selectable per agent/schedule, exportable as YAML | `safety_policies` table | P2 |
 | **DB-backed MCP registry** | A new MCP server (any npm package) registered + health-checked from the UI, replacing the static 11-entry `mcp-registry.js` object | `agency-sync` SSH probe pattern | P5 |
-| **Pluggable tool registry** | An HTTP tool (`{method,url_template,auth_env_var}`) or path-allowlisted script tool, granted per-agent — gated behind the safety engine | `workflows/tools.js` dynamic load | later (post-governance) |
+| **Pluggable tool registry** | An HTTP tool (`{method,url_template,auth_env_var}`) or path-allowlisted script tool, granted per-agent - gated behind the safety engine | `workflows/tools.js` dynamic load | later (post-governance) |
 | **Agent packs (import/export)** | Adopt a community agent from a GitHub YAML pack into the *runnable* roster (finishes what read-only `agency-sync` half-built) | `agency-sync` YAML frontmatter parser | P5 |
-| **Schedule templates** | Seed the 10 production schedules + share new ones as YAML — fixes "fresh deploy looks empty" | seed function + `schedule_templates` | P1 / P5 |
+| **Schedule templates** | Seed the 10 production schedules + share new ones as YAML - fixes "fresh deploy looks empty" | seed function + `schedule_templates` | P1 / P5 |
 | **Inbound webhooks** | An external event source (Prometheus, GitHub Actions, n8n) fires a run via `POST /api/webhooks/:token` | `scheduler.fireRun()` | P3 |
 | **Outbound webhooks** | Any HTTP consumer subscribes to run events with HMAC-signed payloads | run state transitions | later |
 | **Notification channels** | A new Slack/email/webhook destination, DB-driven, no env-var redeploy | `notification_channels` | P3 |
 | **Theme JSON import/export** | A shared accent/density/terminal theme across deployments | `localStorage` + JSON schema | P2 |
-| **Agents-as-config (YAML)** | An entire agent — prompt, model_config, tools, safety tier — expressed as a versioned `.yaml` artifact and round-tripped | YAML serializer | P5 |
+| **Agents-as-config (YAML)** | An entire agent - prompt, model_config, tools, safety tier - expressed as a versioned `.yaml` artifact and round-tripped | YAML serializer | P5 |
 | **Settings-pack export** | The whole `platform_settings` + policies as one `settings-pack.yaml` for backup/GitOps (secrets excluded) | settings table | P2 |
 
 > **Guardrail (Principle S8 + ROADMAP Not-Now):** the pluggable HTTP/script tool registry expands the attack surface meaningfully, so it is deliberately **gated behind the safety policy engine** and sequenced *after* governance lands. Flexibility never outruns safety.
@@ -258,7 +258,7 @@ Configurability is not just knobs — it is **seams that let an operator add cap
 
 The full surface, setting by setting: **where it lives**, **what it controls**, and its **default**. Grouped by pillar. `env` = environment seed; `DB:<table>` = database-backed (live-editable unless noted); `JSON:<column>` = JSON blob column; `localStorage` = per-viewer. *Italic defaults* mark values that are hardcoded constants today and become settings under this plan.
 
-### Pillar 1 — Platform Settings (global, live, DB-backed)
+### Pillar 1 - Platform Settings (global, live, DB-backed)
 
 | Setting | Lives in | Controls | Default | Live? |
 |---|---|---|---|---|
@@ -284,9 +284,9 @@ The full surface, setting by setting: **where it lives**, **what it controls**, 
 | `APP_BASE_URL` | `env` → `DB:platform_settings` | Base URL in Discord notification links | `http://localhost:3001` | ✅ |
 | `QDRANT_URL` / `OLLAMA_URL` / `EMBED_MODEL` | `env` → `DB:platform_settings` | RAG backend endpoints + embedding model | `…6333` / `…11434` / `nomic-embed-text` | restart-ish |
 
-> **Execution backend (`subscription` vs `api`) — owner priority.** The default `subscription` backend dispatches over SSH to `claude -p`, consuming the tokens included in a Claude subscription (**no per-token API cost**, no API key required to run as shipped). The opt-in `api` backend uses the Anthropic API (`@anthropic-ai/sdk`, already a dependency) for headless/cloud or pay-per-token use. It resolves `global < agent < schedule < run` like any other knob, and `ANTHROPIC_API_KEY` stays a **secret** (Principle S8) — never a setting. (ROADMAP P3 · TODO "Pluggable Execution Backend".)
+> **Execution backend (`subscription` vs `api`) - owner priority.** The default `subscription` backend dispatches over SSH to `claude -p`, consuming the tokens included in a Claude subscription (**no per-token API cost**, no API key required to run as shipped). The opt-in `api` backend uses the Anthropic API (`@anthropic-ai/sdk`, already a dependency) for headless/cloud or pay-per-token use. It resolves `global < agent < schedule < run` like any other knob, and `ANTHROPIC_API_KEY` stays a **secret** (Principle S8) - never a setting. (ROADMAP P3 · TODO "Pluggable Execution Backend".)
 
-### Pillar 2 — Per-Agent Profiles
+### Pillar 2 - Per-Agent Profiles
 
 | Setting | Lives in | Controls | Default |
 |---|---|---|---|
@@ -308,7 +308,7 @@ The full surface, setting by setting: **where it lives**, **what it controls**, 
 | `tool_grants` | `JSON:agents.tools` (wired) | Which registry tools this agent may use at runtime | the 3 builtins |
 | `mcp_activations` | `DB:agent_mcp_activations` | Which MCP servers are active for this agent | from `agents.mcp_servers` |
 
-### Pillar 3 — Per-Schedule Execution Policy
+### Pillar 3 - Per-Schedule Execution Policy
 
 | Setting | Lives in | Controls | Default |
 |---|---|---|---|
@@ -327,11 +327,11 @@ The full surface, setting by setting: **where it lives**, **what it controls**, 
 | `stream_mode` | `JSON:schedules.execution_policy` | live / summary-only / off (T1) | `live` |
 | `retention_override` | `JSON:schedules.execution_policy` | Per-schedule retention vs. global | inherit |
 | `notification_routing` | `DB:schedule_notifications` | Channels + on-start/success/failure rules (Pillar 7) | global Discord |
-| `cron_expression` / `recurring` | `DB:schedules` | Firing cadence | — / `true` |
+| `cron_expression` / `recurring` | `DB:schedules` | Firing cadence | - / `true` |
 | `webhook_tokens` | `DB:webhooks` | Inbound trigger tokens (T7) | none |
 | `depends_on` / `trigger_on_success` | `JSON:schedules` | Cross-run pipeline chaining (T7) | none |
 
-### Pillar 4 — Safety & Governance Policies
+### Pillar 4 - Safety & Governance Policies
 
 | Setting | Lives in | Controls | Default |
 |---|---|---|---|
@@ -343,9 +343,9 @@ The full surface, setting by setting: **where it lives**, **what it controls**, 
 | `denied_commands` *(additive)* | `JSON:safety_policies.rules` | Explicit command blocklist (merged across layers) | destructive set |
 | `require_dry_run` | `JSON:safety_policies.rules` | Force `--dry-run=client` on kubectl writes | `true` (controlled-write) |
 | `require_approval` | `JSON:safety_policies.rules` | Route supervised runs through HITL gate (T3) | `true` (supervised) |
-| Policy export | YAML | GitOps-able governance artifact | — |
+| Policy export | YAML | GitOps-able governance artifact | - |
 
-### Pillar 5 — Budgets & Cost Controls (`cost_budgets` wired)
+### Pillar 5 - Budgets & Cost Controls (`cost_budgets` wired)
 
 | Setting | Lives in | Controls | Default |
 |---|---|---|---|
@@ -358,9 +358,9 @@ The full surface, setting by setting: **where it lives**, **what it controls**, 
 | spend tracking | `DB:budgets_spent` | Atomic per-period spend (daily/monthly) | computed |
 | pricing source | `DB:platform_settings.model_pricing` | Drives all cost math incl. **SSH-run telemetry** (T2) | shared |
 
-> **Prerequisite:** budgets are only meaningful once **SSH runs produce trace rows** (T2 — parse `usage` from `claude --output-format json`, call existing `recordTrace()`). Until then the dashboard sees only RAG/eval cost. Budget enforcement is wired *after* SSH telemetry lands.
+> **Prerequisite:** budgets are only meaningful once **SSH runs produce trace rows** (T2 - parse `usage` from `claude --output-format json`, call existing `recordTrace()`). Until then the dashboard sees only RAG/eval cost. Budget enforcement is wired *after* SSH telemetry lands.
 
-### Pillar 6 — Eval & Judge Configuration
+### Pillar 6 - Eval & Judge Configuration
 
 | Setting | Lives in | Controls | Default |
 |---|---|---|---|
@@ -372,7 +372,7 @@ The full surface, setting by setting: **where it lives**, **what it controls**, 
 | `baseline_run_id` | `DB:eval_suites` | Baseline for regression comparison | `null` |
 | `regression_threshold` | `DB:eval_suites` | Delta that flags a regression + alerts | `0.1` |
 
-### Pillar 7 — Notifications & Integrations
+### Pillar 7 - Notifications & Integrations
 
 | Setting | Lives in | Controls | Default |
 |---|---|---|---|
@@ -385,7 +385,7 @@ The full surface, setting by setting: **where it lives**, **what it controls**, 
 | API key `scopes` | `DB:api_keys` | read / trigger / write / admin (secures open `/claude` proxy) | none (open today) |
 | API key `rate_limit_rpm` | `DB:api_keys` | Per-key throttle | unlimited |
 
-### Pillar 8 — Appearance & Presentation (per-viewer)
+### Pillar 8 - Appearance & Presentation (per-viewer)
 
 | Setting | Lives in | Controls | Default |
 |---|---|---|---|
@@ -394,9 +394,9 @@ The full surface, setting by setting: **where it lives**, **what it controls**, 
 | `density` | `localStorage` | compact / comfortable / spacious | comfortable |
 | `terminal_theme` | `localStorage` | Live-stream terminal palette | per-agent-color |
 | `presentation_mode` | `localStorage` | Sidebar-hidden focus/demo view | off |
-| `theme_export` | JSON | Shareable theme artifact (import on another deploy) | — |
+| `theme_export` | JSON | Shareable theme artifact (import on another deploy) | - |
 
-> **Notably absent from every table:** `ANTHROPIC_API_KEY`, `SSH_KEY_PATH`, webhook secrets, API-key raw values. These are **secrets**, not settings (Principle S8) — they stay in K8s Secrets or one-time-reveal flows and are excluded from `settings-pack.yaml` exports.
+> **Notably absent from every table:** `ANTHROPIC_API_KEY`, `SSH_KEY_PATH`, webhook secrets, API-key raw values. These are **secrets**, not settings (Principle S8) - they stay in K8s Secrets or one-time-reveal flows and are excluded from `settings-pack.yaml` exports.
 
 ---
 
@@ -427,26 +427,26 @@ Aligned to the [ROADMAP](./ROADMAP.md) phases. Settings work is concentrated in 
 
 | Phase | Settings deliverables | Why here |
 |-------|----------------------|----------|
-| **P1 — Make It Visible & Honest** | `traces.source` column; SSH-run telemetry feeds the pricing table (prerequisite for budgets); seed the 10 schedule templates | Budgets and cost settings are meaningless without SSH cost data; templates fix "empty on first boot" |
-| **P2 — Make It Configurable & Governed** | **`platform_settings` + Settings Hub UI** (Pillars 1, 8); **per-agent inference profiles** (Pillar 2); **tiered safety policy engine wiring `allow_writes`** (Pillars 3, 4); **budget enforcement** (Pillar 5); the **`resolveSetting()` resolver** | The north-star phase: this document's core surface ships here |
-| **P3 — Make It Trustworthy & Reactive** | API-key scopes, inbound webhook tokens, multi-channel notification routing (Pillar 7); retry policy settings (Pillar 3) | Settings that secure and connect the platform to the outside |
-| **P4 — Make It Smart & Self-Improving** | Configurable eval judge + regression thresholds (Pillar 6); per-agent memory settings (Pillar 2); prompt-version settings | MLOps configurability |
-| **P5 — Make It Composable & Portable** | DB-backed MCP registry; agent-pack + settings-pack + theme YAML import/export (Pillar 8); workspace layer (if a real multi-tenant need emerges) | Portability turns settings into shareable artifacts |
+| **P1 - Make It Visible & Honest** | `traces.source` column; SSH-run telemetry feeds the pricing table (prerequisite for budgets); seed the 10 schedule templates | Budgets and cost settings are meaningless without SSH cost data; templates fix "empty on first boot" |
+| **P2 - Make It Configurable & Governed** | **`platform_settings` + Settings Hub UI** (Pillars 1, 8); **per-agent inference profiles** (Pillar 2); **tiered safety policy engine wiring `allow_writes`** (Pillars 3, 4); **budget enforcement** (Pillar 5); the **`resolveSetting()` resolver** | The north-star phase: this document's core surface ships here |
+| **P3 - Make It Trustworthy & Reactive** | API-key scopes, inbound webhook tokens, multi-channel notification routing (Pillar 7); retry policy settings (Pillar 3) | Settings that secure and connect the platform to the outside |
+| **P4 - Make It Smart & Self-Improving** | Configurable eval judge + regression thresholds (Pillar 6); per-agent memory settings (Pillar 2); prompt-version settings | MLOps configurability |
+| **P5 - Make It Composable & Portable** | DB-backed MCP registry; agent-pack + settings-pack + theme YAML import/export (Pillar 8); workspace layer (if a real multi-tenant need emerges) | Portability turns settings into shareable artifacts |
 
 ### Effort & Risk Notes
 
 - **Highest leverage, lowest effort:** moving the **model allowlist + pricing table** into `platform_settings` (S effort) removes two of the most embarrassing "requires-a-code-deploy" constraints at once.
-- **Highest payoff:** **per-agent inference profiles** (M) — five agents with five model badges is the most direct visual proof of flexible orchestration.
+- **Highest payoff:** **per-agent inference profiles** (M) - five agents with five model badges is the most direct visual proof of flexible orchestration.
 - **Risk to retire first:** the **ghost knobs** (`allow_writes`, `cost_budgets`). Wire them in P2 or remove them (Principle S5 / ROADMAP Principle #3). This document commits to wiring.
-- **Deliberately deferred:** the **workspace** precedence layer and the **pluggable HTTP/script tool registry** — both real flexibility wins, both on the ROADMAP *Not Now* list until single-user scope demands them and governance is solid, respectively.
+- **Deliberately deferred:** the **workspace** precedence layer and the **pluggable HTTP/script tool registry** - both real flexibility wins, both on the ROADMAP *Not Now* list until single-user scope demands them and governance is solid, respectively.
 
 ---
 
 ## Open Questions
 
 1. **Resolver caching.** `resolveSetting()` runs per dispatch. With SQLite single-writer + WAL, is an in-process settings cache (invalidated on `PUT /api/settings`) worth it, or is per-run resolution cheap enough at homelab scale? *Lean: cache global layer, resolve entity layers live.*
-2. **Live vs. restart UX honesty.** For `requires_restart` settings edited live, do we (a) queue + show a "pending restart" badge, or (b) refuse the edit with a clear message? *Lean: (a) — store the value, apply on next boot, badge it.*
-3. **Safety floor escalation.** Should `supervised` ever be reachable purely from settings, or always require both the `SUPERVISED_OVERRIDE` env gate **and** a human approval (T3)? *Lean: both, always — safety never escalates from config alone.*
+2. **Live vs. restart UX honesty.** For `requires_restart` settings edited live, do we (a) queue + show a "pending restart" badge, or (b) refuse the edit with a clear message? *Lean: (a) - store the value, apply on next boot, badge it.*
+3. **Safety floor escalation.** Should `supervised` ever be reachable purely from settings, or always require both the `SUPERVISED_OVERRIDE` env gate **and** a human approval (T3)? *Lean: both, always - safety never escalates from config alone.*
 4. **Workspace timing.** When (if ever) does the homelab need the workspace precedence layer? Keep it in the resolver contract as a no-op until a concrete multi-context need appears.
 5. **Settings-pack secret boundary.** Confirm the export filter is allowlist-based (export only known-safe keys) rather than denylist-based (risk of leaking a future secret key). *Lean: allowlist.*
 
