@@ -86,6 +86,7 @@ The platform was built in five planned phases (visibility → configurability �
 
 ### 9. Evaluation & Self-Improvement
 - Eval suites with LLM-as-judge scoring; judge model and pass threshold are configurable per run
+- Runs on whatever the LLM layer resolves - Anthropic when a key is present, otherwise **any OpenAI-compatible endpoint including fully-local Ollama models** ($0; speed and judge quality scale with the model and hardware)
 - **Prompt A/B testing** - score the agent's current prompt (A) against a candidate (B) on the same suite, side by side
 - **Promote-to-active** - one click sets the winning prompt live (auto-snapshotting the old one), closing the measure → improve → ship loop
 
