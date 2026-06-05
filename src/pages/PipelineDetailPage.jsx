@@ -86,6 +86,16 @@ export default function PipelineDetailPage() {
     } finally { setSaving(false); }
   };
 
+  // Cron scheduling for the pipeline (manual | active | paused)
+  const saveScheduling = async (patch) => {
+    const res = await fetch(`/api/pipelines/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (res.ok) setPipeline(await res.json());
+    else alert((await res.json().catch(() => ({}))).error || 'Save failed');
+  };
+
   // --- run + live overlay ---
   const run = async () => {
     if (dirty) await save();
@@ -177,6 +187,35 @@ export default function PipelineDetailPage() {
           className="mt-2 flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-sm text-white font-medium transition-colors">
           <Play size={14} /> Run
         </button>
+      </div>
+
+      {/* Scheduling */}
+      <div className="mb-6 p-4 rounded-xl glass border border-white/10">
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-sm font-medium text-zinc-300 shrink-0">Schedule</h3>
+          <input
+            value={pipeline.cron_expression || ''}
+            onChange={e => setPipeline(p => ({ ...p, cron_expression: e.target.value }))}
+            onBlur={e => saveScheduling({ cron_expression: e.target.value || null })}
+            placeholder="cron, e.g. 0 7 * * 1-5"
+            className="w-44 px-3 py-1.5 rounded-lg bg-zinc-900 border border-white/10 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+          />
+          <div className="flex rounded-lg overflow-hidden border border-white/10">
+            {['manual', 'active', 'paused'].map(st => (
+              <button key={st} onClick={() => saveScheduling({ schedule_status: st })}
+                className={`px-3 py-1.5 text-xs capitalize transition-colors ${pipeline.schedule_status === st ? 'bg-violet-600/30 text-violet-100' : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300'}`}>
+                {st}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-zinc-600">
+            {pipeline.schedule_status === 'active' && pipeline.next_run_at
+              ? `next run ${new Date(pipeline.next_run_at).toLocaleString()}`
+              : pipeline.schedule_status === 'active'
+              ? 'cron required to activate'
+              : 'fires only on Run or webhook'}
+          </span>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-5">

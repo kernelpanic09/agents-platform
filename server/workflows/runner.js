@@ -169,6 +169,17 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   const body = `${(summary || errorMessage || '').slice(0, 400)}\nView: ${APP_BASE_URL}/schedules/runs/${runId}`;
   sendDiscordNotify(title, body, color).catch(() => {});
 
+  // Operational alert: an agent reported a CRITICAL verdict - distinct red alert
+  // so verdicts feed monitoring, not just badges.
+  const runVerdict = worstVerdict(verdicts);
+  if (runVerdict === 'critical') {
+    sendDiscordNotify(
+      `CRITICAL verdict -- ${schedule.name}`,
+      `An agent reported STATUS: critical.\n${(summary || '').slice(0, 400)}\nView: ${APP_BASE_URL}/schedules/runs/${runId}`,
+      15158332,
+    ).catch(() => {});
+  }
+
   emitRunEvent(runId, { type: 'done', status, summary });
   return { status, runId, steps };
 }

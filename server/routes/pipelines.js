@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { validatePipelineGraph, executePipelineRun } from '../workflows/pipeline.js';
 import { subscribeRun, isRunLive } from '../run-stream.js';
 
@@ -17,7 +18,7 @@ function parsePipelineRun(row) {
   return { ...row, node_states: safe(row.node_states, '{}'), outputs: safe(row.outputs, '{}') };
 }
 
-export default function pipelinesRouter(db) {
+export default function pipelinesRouter(db, scheduler) {
   const router = Router();
 
   // --- Pipelines CRUD ---
@@ -52,7 +53,10 @@ export default function pipelinesRouter(db) {
     const id = parseInt(req.params.id, 10);
     const existing = db.prepare(`SELECT * FROM pipelines WHERE id = ?`).get(id);
     if (!existing) return res.status(404).json({ error: 'Pipeline not found' });
-    const { name, description, graph } = req.body;
+    const { name, description, graph, cron_expression, schedule_status } = req.body;
+    if (schedule_status !== undefined && !['manual', 'active', 'paused'].includes(schedule_status)) {
+      return res.status(400).json({ error: "schedule_status must be manual, active, or paused" });
+    }
     let graphStr = existing.graph;
     if (graph !== undefined) {
       const check = validatePipelineGraph(graph);
@@ -63,8 +67,17 @@ export default function pipelinesRouter(db) {
       }
       graphStr = JSON.stringify(graph);
     }
-    db.prepare(`UPDATE pipelines SET name = ?, description = ?, graph = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(name ?? existing.name, description ?? existing.description, graphStr, id);
+    db.prepare(`UPDATE pipelines SET name = ?, description = ?, graph = ?, cron_expression = ?, schedule_status = ?, updated_at = datetime('now') WHERE id = ?`)
+      .run(
+        name ?? existing.name, description ?? existing.description, graphStr,
+        cron_expression !== undefined ? (cron_expression || null) : existing.cron_expression,
+        schedule_status !== undefined ? schedule_status : existing.schedule_status,
+        id,
+      );
+    const updated = db.prepare(`SELECT * FROM pipelines WHERE id = ?`).get(id);
+    if (scheduler && (cron_expression !== undefined || schedule_status !== undefined)) {
+      scheduler.registerPipeline(updated); // registers, re-registers, or clears the cron task
+    }
     res.json(parsePipeline(db.prepare(`SELECT * FROM pipelines WHERE id = ?`).get(id)));
   });
 
@@ -100,6 +113,38 @@ export default function pipelinesRouter(db) {
     });
 
     res.status(201).json({ run_id: runId, status: 'queued' });
+  });
+
+  // --- Webhook triggers (tokenized; mirrors schedule webhooks) ---
+  router.post('/:id/webhooks', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!db.prepare('SELECT id FROM pipelines WHERE id = ?').get(id)) return res.status(404).json({ error: 'Pipeline not found' });
+    const token = 'phk_' + crypto.randomBytes(18).toString('base64url');
+    const info = db.prepare('INSERT INTO pipeline_webhooks (pipeline_id, token, label) VALUES (?, ?, ?)')
+      .run(id, token, (req.body && req.body.label) || '');
+    res.status(201).json({ id: info.lastInsertRowid, pipeline_id: id, token });
+  });
+
+  router.get('/:id/webhooks', (req, res) => {
+    res.json(db.prepare('SELECT * FROM pipeline_webhooks WHERE pipeline_id = ? ORDER BY id DESC').all(parseInt(req.params.id, 10)));
+  });
+
+  router.delete('/webhooks/:wid', (req, res) => {
+    const r = db.prepare('DELETE FROM pipeline_webhooks WHERE id = ?').run(parseInt(req.params.wid, 10));
+    if (!r.changes) return res.status(404).json({ error: 'webhook not found' });
+    res.json({ success: true });
+  });
+
+  // POST /api/pipelines/hooks/:token - public; the token authenticates. Optional
+  // { "task": "..." } overrides the pipeline's default task.
+  router.post('/hooks/:token', (req, res) => {
+    const wh = db.prepare('SELECT * FROM pipeline_webhooks WHERE token = ?').get(req.params.token);
+    if (!wh) return res.status(404).json({ error: 'unknown webhook token' });
+    if (!scheduler) return res.status(503).json({ error: 'scheduler unavailable' });
+    const runId = scheduler.firePipeline(wh.pipeline_id, { task: (req.body && req.body.task) || null, force: true });
+    if (!runId) return res.status(400).json({ error: 'pipeline could not be fired (invalid graph?)' });
+    db.prepare(`UPDATE pipeline_webhooks SET last_triggered_at = datetime('now'), trigger_count = trigger_count + 1 WHERE id = ?`).run(wh.id);
+    res.status(201).json({ pipeline_run_id: runId });
   });
 
   // --- Pipeline runs ---

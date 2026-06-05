@@ -1,36 +1,24 @@
-import { ChatAnthropic } from '@langchain/anthropic';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { chatComplete, auxModelId, auxTraceSource } from '../llm.js';
 import { recordTrace } from '../observability/telemetry.js';
 
-const MODEL_MAP = {
-  haiku: 'claude-haiku-4-5-20251001',
-  sonnet: 'claude-sonnet-4-6-20250514',
-  opus: 'claude-opus-4-7-20250219',
-};
-
 async function runSingleCase(agent, evalCase, model, systemPrompt) {
-  const llm = new ChatAnthropic({
-    model: MODEL_MAP[model] || MODEL_MAP.haiku,
-    maxTokens: 2048,
-  });
-
   const startTime = Date.now();
-  const response = await llm.invoke([
-    new SystemMessage(systemPrompt || agent.system_prompt || `You are ${agent.name}, ${agent.title}.`),
-    new HumanMessage(evalCase.input_prompt),
-  ]);
+  const response = await chatComplete([
+    { role: 'system', content: systemPrompt || agent.system_prompt || `You are ${agent.name}, ${agent.title}.` },
+    { role: 'user', content: evalCase.input_prompt },
+  ], { model, maxTokens: 2048 });
   const latencyMs = Date.now() - startTime;
   const output = response.content;
-  const inputTokens = response.usage_metadata?.input_tokens || 0;
-  const outputTokens = response.usage_metadata?.output_tokens || 0;
+  const { inputTokens, outputTokens } = response;
 
   recordTrace({
     agentId: agent.id,
     stepName: 'eval_case',
-    model: MODEL_MAP[model] || MODEL_MAP.haiku,
+    model: response.model,
     inputTokens,
     outputTokens,
     latencyMs,
+    source: auxTraceSource(),
     inputPreview: evalCase.input_prompt,
     outputPreview: output,
   });
@@ -39,11 +27,6 @@ async function runSingleCase(agent, evalCase, model, systemPrompt) {
 }
 
 async function judgeOutput(output, expectedBehavior, scoringCriteria, judgeModel = 'haiku', passThreshold = 0.6) {
-  const judge = new ChatAnthropic({
-    model: MODEL_MAP[judgeModel] || MODEL_MAP.haiku,
-    maxTokens: 512,
-    temperature: 0,
-  });
 
   const prompt = `You are an evaluation judge. Score the following output against the expected behavior.
 
@@ -62,7 +45,7 @@ Respond in this exact JSON format:
 {"relevance": 0.0, "accuracy": 0.0, "completeness": 0.0, "format": 0.0, "overall": 0.0, "passed": true, "reasoning": "brief explanation"}`;
 
   try {
-    const response = await judge.invoke([new HumanMessage(prompt)]);
+    const response = await chatComplete([{ role: 'user', content: prompt }], { model: judgeModel, maxTokens: 512, temperature: 0 });
     const text = response.content;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -108,7 +91,7 @@ export async function runEvalSuite(db, suiteId, model = 'haiku', opts = {}) {
       const judgment = await judgeOutput(output, evalCase.expected_behavior, evalCase.scoring_criteria, judgeModel, passThreshold);
 
       const { calculateCost } = await import('../observability/telemetry.js');
-      const caseCost = calculateCost(MODEL_MAP[model] || MODEL_MAP.haiku, inputTokens, outputTokens);
+      const caseCost = calculateCost(auxModelId(model), inputTokens, outputTokens);
 
       db.prepare(`
         INSERT INTO eval_results (eval_run_id, eval_case_id, output, scores, overall_score, passed, judge_reasoning, latency_ms, tokens_used, cost_usd)

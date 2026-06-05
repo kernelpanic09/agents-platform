@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import parser from 'cron-parser';
 import { executeRunViaGraph } from './workflows/runner.js';
+import { executePipelineRun, validatePipelineGraph } from './workflows/pipeline.js';
 import { resolveTier } from './safety-prompt.js';
 import { sendDiscordNotify } from './executor.js';
 import { getSetting } from './settings.js';
@@ -51,6 +52,7 @@ export function isValidCron(cronExpression) {
 
 export function createScheduler(db) {
   const tasks = new Map(); // scheduleId -> cron.ScheduledTask
+  const pipelineTasks = new Map(); // pipelineId -> cron.ScheduledTask
   let active = 0; // runs executing in THIS process right now
 
   // The durable queue IS the runs table: status 'queued' = waiting, 'running' = claimed.
@@ -184,6 +186,48 @@ export function createScheduler(db) {
     return runId;
   }
 
+  // Fire a pipeline (cron or webhook). Pipelines bypass the run queue: they are
+  // fire-and-forget with their own pipeline_runs lifecycle.
+  function firePipeline(pipelineId, { task = null, force = false } = {}) {
+    const p = db.prepare('SELECT * FROM pipelines WHERE id = ?').get(pipelineId);
+    if (!p) return null;
+    if (!force && p.schedule_status !== 'active') return null;
+    let graphDef; try { graphDef = JSON.parse(p.graph || '{"nodes":[],"edges":[]}'); } catch { return null; }
+    if (!validatePipelineGraph(graphDef).ok) {
+      console.error(`[scheduler] pipeline ${pipelineId} graph invalid; skipping fire`);
+      return null;
+    }
+    const t = task || p.description || p.name;
+    const r = db.prepare(`INSERT INTO pipeline_runs (pipeline_id, task, status) VALUES (?, ?, 'queued')`).run(pipelineId, t);
+    const runId = r.lastInsertRowid;
+    executePipelineRun({ db, pipeline: p, task: t, pipelineRunId: runId }).catch(err => {
+      console.error(`[scheduler] pipeline run ${runId} crashed:`, err.message);
+      db.prepare(`UPDATE pipeline_runs SET status='failed', error_message=?, finished_at=datetime('now') WHERE id=?`).run(err.message, runId);
+    });
+    if (p.cron_expression) {
+      db.prepare(`UPDATE pipelines SET next_run_at = ? WHERE id = ?`).run(nextRunAt(p.cron_expression), pipelineId);
+    }
+    return runId;
+  }
+
+  function registerPipeline(pipeline) {
+    if (pipelineTasks.has(pipeline.id)) {
+      pipelineTasks.get(pipeline.id).stop();
+      pipelineTasks.delete(pipeline.id);
+    }
+    if (pipeline.schedule_status !== 'active') {
+      db.prepare(`UPDATE pipelines SET next_run_at = NULL WHERE id = ?`).run(pipeline.id);
+      return;
+    }
+    if (!isValidCron(pipeline.cron_expression)) {
+      console.error(`[scheduler] invalid cron for pipeline ${pipeline.id}: ${pipeline.cron_expression}`);
+      return;
+    }
+    const task = cron.schedule(pipeline.cron_expression, () => { firePipeline(pipeline.id); });
+    pipelineTasks.set(pipeline.id, task);
+    db.prepare(`UPDATE pipelines SET next_run_at = ? WHERE id = ?`).run(nextRunAt(pipeline.cron_expression), pipeline.id);
+  }
+
   function register(schedule) {
     if (tasks.has(schedule.id)) {
       tasks.get(schedule.id).stop();
@@ -224,7 +268,17 @@ export function createScheduler(db) {
           ) WHERE rn > ?
         )
       `).run(getSetting('retention_max_runs_per_schedule'));
-      const removed = (byAge.changes || 0) + (byCount.changes || 0);
+      const pipeByAge = db.prepare(
+        `DELETE FROM pipeline_runs WHERE status NOT IN ('running','queued') AND created_at < datetime('now', ?)`
+      ).run(`-${getSetting('retention_max_age_days')} days`);
+      const pipeByCount = db.prepare(`
+        DELETE FROM pipeline_runs WHERE id IN (
+          SELECT id FROM (
+            SELECT id, ROW_NUMBER() OVER (PARTITION BY pipeline_id ORDER BY created_at DESC) AS rn FROM pipeline_runs
+          ) WHERE rn > ?
+        )
+      `).run(getSetting('retention_max_runs_per_schedule'));
+      const removed = (byAge.changes || 0) + (byCount.changes || 0) + (pipeByAge.changes || 0) + (pipeByCount.changes || 0);
       if (removed > 0) console.log(`[scheduler] retention pruned ${removed} old run(s)`);
       return removed;
     } catch (err) {
@@ -236,6 +290,9 @@ export function createScheduler(db) {
   function hydrate() {
     const rows = db.prepare(`SELECT * FROM schedules WHERE status = 'active'`).all();
     for (const row of rows) register(row);
+    const pipeRows = db.prepare(`SELECT * FROM pipelines WHERE schedule_status = 'active'`).all();
+    for (const row of pipeRows) registerPipeline(row);
+    if (pipeRows.length) console.log(`[scheduler] hydrated ${pipeRows.length} scheduled pipeline(s)`);
     console.log(`[scheduler] hydrated ${rows.length} active schedule(s), concurrency=${getSetting('max_concurrent_runs')}`);
     // Prune once on boot, then nightly at 03:00 (separate from user schedules).
     pruneRuns();
@@ -252,5 +309,5 @@ export function createScheduler(db) {
     return { registered: tasks.size, queued, running: active, maxConcurrent: getSetting('max_concurrent_runs') };
   }
 
-  return { hydrate, register, unregister, fireRun, requeue, recoverOrphans, stats, pruneRuns };
+  return { hydrate, register, unregister, fireRun, firePipeline, registerPipeline, requeue, recoverOrphans, stats, pruneRuns };
 }

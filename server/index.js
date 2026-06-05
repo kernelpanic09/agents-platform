@@ -76,7 +76,7 @@ app.use('/api/runs', runsRouter(db, scheduler));
 app.use('/api/apps', appsRouter());
 app.use('/api/rag', ragRouter(db));
 app.use('/api/workflows', workflowsRouter(db));
-app.use('/api/pipelines', pipelinesRouter(db));
+app.use('/api/pipelines', pipelinesRouter(db, scheduler));
 app.use('/api/crews', crewsRouter(db, scheduler));
 app.use('/api/packs', packsRouter(db));
 app.use('/api/observability', observabilityRouter(db));

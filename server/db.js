@@ -293,6 +293,24 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_pipeline_runs_pipeline ON pipeline_runs(pipeline_id, created_at DESC);
   `);
 
+  // Pipeline lifecycle (post-P5): cron scheduling + webhook triggers.
+  const pipeCols = new Set(db.prepare(`PRAGMA table_info(pipelines)`).all().map(c => c.name));
+  for (const [col, def] of [['cron_expression', 'TEXT DEFAULT NULL'], ['schedule_status', "TEXT NOT NULL DEFAULT 'manual'"], ['next_run_at', 'TEXT DEFAULT NULL']]) {
+    if (!pipeCols.has(col)) {
+      db.exec(`ALTER TABLE pipelines ADD COLUMN ${col} ${def}`);
+      console.log(`[db] migrated: pipelines.${col} added`);
+    }
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS pipeline_webhooks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pipeline_id INTEGER NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    label TEXT DEFAULT '',
+    last_triggered_at TEXT,
+    trigger_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // Saved Crews (P5) — named reusable agent teams with a topology
   // (fan=parallel, chain=sequential, roundtable=meeting). Running/scheduling a
   // crew delegates to the existing schedule machinery (full run history + Live

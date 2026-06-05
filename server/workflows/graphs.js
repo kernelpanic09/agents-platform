@@ -1,23 +1,9 @@
 import { StateGraph } from '@langchain/langgraph';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { chatComplete, auxTraceSource } from '../llm.js';
 import { AgentState } from './state.js';
 import { ragSearch } from '../rag/chat.js';
 import { runClaude, extractSummary, parseClaudeJson } from '../executor.js';
 import { recordTrace } from '../observability/telemetry.js';
-
-const MODEL_MAP = {
-  haiku: 'claude-haiku-4-5-20251001',
-  sonnet: 'claude-sonnet-4-6-20250514',
-  opus: 'claude-opus-4-7-20250219',
-};
-
-function getLLM(model = 'haiku') {
-  return new ChatAnthropic({
-    model: MODEL_MAP[model] || MODEL_MAP.haiku,
-    maxTokens: 4096,
-  });
-}
 
 async function ragRetrieveNode(state) {
   const results = await ragSearch(state.task, { agentId: state.agentId, limit: 5 });
@@ -40,21 +26,21 @@ async function ragRespondNode(state) {
     .map((c, i) => `[${i + 1}] ${c.text}`)
     .join('\n\n');
 
-  const llm = getLLM(state.model);
   const startTime = Date.now();
-  const response = await llm.invoke([
-    new SystemMessage(`You are ${state.agentName}. Answer based on the provided context. Cite sources by number.`),
-    new HumanMessage(`Context:\n${contextText}\n\nQuestion: ${state.task}`),
-  ]);
+  const response = await chatComplete([
+    { role: 'system', content: `You are ${state.agentName}. Answer based on the provided context. Cite sources by number.` },
+    { role: 'user', content: `Context:\n${contextText}\n\nQuestion: ${state.task}` },
+  ], { model: state.model, maxTokens: 4096 });
 
   const answer = response.content;
   recordTrace({
     agentId: state.agentId,
     stepName: 'langgraph_rag_respond',
-    model: MODEL_MAP[state.model] || MODEL_MAP.haiku,
-    inputTokens: response.usage_metadata?.input_tokens || 0,
-    outputTokens: response.usage_metadata?.output_tokens || 0,
+    model: response.model,
+    inputTokens: response.inputTokens,
+    outputTokens: response.outputTokens,
     latencyMs: Date.now() - startTime,
+    source: auxTraceSource(),
     inputPreview: state.task,
     outputPreview: answer,
   });

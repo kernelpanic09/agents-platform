@@ -1,6 +1,6 @@
 import vm from 'vm';
 import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
-import { buildAgentPrompt, runClaude, parseClaudeJson, extractSummary, extractVerdict, resolveInference } from '../executor.js';
+import { buildAgentPrompt, runClaude, parseClaudeJson, extractSummary, extractVerdict, resolveInference, sendDiscordNotify } from '../executor.js';
 import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
 import { IS_DEMO } from '../demo.js';
@@ -234,6 +234,15 @@ export async function executePipelineRun({ db, pipeline, task, pipelineRunId }) 
     .run(status, finishedAt, durationMs, summary, JSON.stringify(finalOutputs), errorMessage, pipelineRunId);
   db.prepare(`UPDATE pipelines SET last_run_at = ? WHERE id = ?`).run(finishedAt, pipeline.id);
   emitRunEvent(channel, { type: 'done', status, summary });
+
+  const criticalNodes = Object.values(nodeStates).filter(n => n.verdict === 'critical').map(n => n.label);
+  if (criticalNodes.length) {
+    sendDiscordNotify(
+      `CRITICAL verdict -- pipeline ${pipeline.name}`,
+      `Node(s) reported STATUS: critical: ${criticalNodes.join(', ')}.\n${summary.slice(0, 300)}`,
+      15158332,
+    ).catch(() => {});
+  }
 
   return { status, pipelineRunId };
 }
