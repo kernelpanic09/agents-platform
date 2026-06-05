@@ -1,4 +1,4 @@
-import { chatComplete, auxModelId, auxTraceSource } from '../llm.js';
+import { chatComplete, auxBackend, auxModelId, auxTraceSource } from '../llm.js';
 import { recordTrace } from '../observability/telemetry.js';
 
 async function runSingleCase(agent, evalCase, model, systemPrompt) {
@@ -6,7 +6,7 @@ async function runSingleCase(agent, evalCase, model, systemPrompt) {
   const response = await chatComplete([
     { role: 'system', content: systemPrompt || agent.system_prompt || `You are ${agent.name}, ${agent.title}.` },
     { role: 'user', content: evalCase.input_prompt },
-  ], { model, maxTokens: 2048 });
+  ], { model, maxTokens: auxBackend() === 'openai' ? 512 : 2048, timeoutMs: 360000 });
   const latencyMs = Date.now() - startTime;
   const output = response.content;
   const { inputTokens, outputTokens } = response;
@@ -45,7 +45,7 @@ Respond in this exact JSON format:
 {"relevance": 0.0, "accuracy": 0.0, "completeness": 0.0, "format": 0.0, "overall": 0.0, "passed": true, "reasoning": "brief explanation"}`;
 
   try {
-    const response = await chatComplete([{ role: 'user', content: prompt }], { model: judgeModel, maxTokens: 512, temperature: 0 });
+    const response = await chatComplete([{ role: 'user', content: prompt }], { model: judgeModel, maxTokens: auxBackend() === 'openai' ? 256 : 512, temperature: 0, timeoutMs: 360000 });
     const text = response.content;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
