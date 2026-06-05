@@ -105,7 +105,7 @@ The UI is a flat dark dashboard with an amber primary and teal secondary accent 
 The 20-agent roster with search, category filters, and quick-task cards.
 
 ### Pipelines - conditional DAG orchestration
-![Pipeline Builder](docs/screenshots/pipelines.png?v=2)
+![Pipeline replay with verdicts](docs/screenshots/pipeline-replay.gif)
 
 A real run of the *Incident Triage* pipeline with both routing styles in play: Sentinel's sweep contained `CRITICAL`, so the graph escalated to **Atlas** while **Relay** (the always-edge) fired in parallel; Atlas investigated and reported `STATUS: attention`, so the `verdict === 'critical'` edge to the **Incident Response Commander** (an agent adopted from the agency catalog) correctly did not fire. Node labels show each agent's structured verdict; statuses stream onto the DAG live over SSE, and the builder below edits nodes and conditional edges in place.
 
@@ -114,17 +114,22 @@ A real run of the *Incident Triage* pipeline with both routing styles in play: S
 
 Reusable teams with fan / chain / round-table topologies, one-click run or schedule, and suggested crews derived from the related-agents graph.
 
-### Agency Catalog and Adoption
-![Agency catalog](docs/screenshots/agency.png)
+### Live Run Streaming
+![A sequential crew run streaming live](docs/screenshots/crew-run.gif)
 
-A 140+ agent catalog synced from a public agent repository. Any entry adopts into the runnable roster with one click (provenance-tagged), after which it is schedulable, crewable, and usable as a pipeline node - the Incident Response Commander in the pipeline above came from here. Demo mode seeds a complete example: an adopted Code Reviewer composed with the built-in personas in a schedule and a crew.
+A four-agent sequential crew run streaming over SSE (6x speed): each agent's panel flips queued -> running -> success in real time as the chain progresses, with per-agent summaries landing as they finish - no polling, no spinner.
+
+### Agency Catalog and Adoption
+![Agency catalog adoption flow](docs/screenshots/agency.gif)
+
+A 140+ agent catalog synced from a public agent repository. One click adopts an entry into the runnable roster (provenance-tagged), after which it is schedulable, crewable, and usable as a pipeline node - the capture above adopts the DevOps Automator and lands on the roster, where adopted agents carry a `catalog` chip. The Incident Response Commander in the pipeline above came from here. Demo mode seeds a complete example: an adopted Code Reviewer composed with the built-in personas in a schedule and a crew.
 
 ### Schedules and Runs
 ![Schedules](docs/screenshots/schedules.png?v=4)
 
 Ten production-grade scheduled workflows spanning all three composition modes - parallel, sequential, and meeting.
 
-![New Schedule form](docs/screenshots/schedule-form.png?v=3)
+![New Schedule form walkthrough](docs/screenshots/schedule-form.gif)
 
 Creating a schedule from one form: pick which agents take part, choose a composition mode (parallel / sequential / meeting), scope the run to a specific app (the agents `cd` into it and read its `CLAUDE.md`), pick a model, an **execution backend** (subscription SSH vs Anthropic API), and a **safety tier** (read-only / controlled / supervised), then set the cadence with the cron builder.
 
@@ -327,10 +332,15 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `DELETE` | `/api/agents/:id` | Delete agent |
 | `POST` | `/api/agency/:id/adopt` | Copy a catalog agent into the runnable roster |
 
-### Agency Catalog and Adoption
-![Agency catalog](docs/screenshots/agency.png)
+### Live Run Streaming
+![A sequential crew run streaming live](docs/screenshots/crew-run.gif)
 
-A 140+ agent catalog synced from a public agent repository. Any entry adopts into the runnable roster with one click (provenance-tagged), after which it is schedulable, crewable, and usable as a pipeline node - the Incident Response Commander in the pipeline above came from here. Demo mode seeds a complete example: an adopted Code Reviewer composed with the built-in personas in a schedule and a crew.
+A four-agent sequential crew run streaming over SSE (6x speed): each agent's panel flips queued -> running -> success in real time as the chain progresses, with per-agent summaries landing as they finish - no polling, no spinner.
+
+### Agency Catalog and Adoption
+![Agency catalog adoption flow](docs/screenshots/agency.gif)
+
+A 140+ agent catalog synced from a public agent repository. One click adopts an entry into the runnable roster (provenance-tagged), after which it is schedulable, crewable, and usable as a pipeline node - the capture above adopts the DevOps Automator and lands on the roster, where adopted agents carry a `catalog` chip. The Incident Response Commander in the pipeline above came from here. Demo mode seeds a complete example: an adopted Code Reviewer composed with the built-in personas in a schedule and a crew.
 
 ### Schedules and Runs
 | Method | Path | Description |
