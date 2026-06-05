@@ -7,9 +7,9 @@
 
 An AI agent orchestration platform: a roster of agent personas dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop - with full cost/latency observability and platform SLOs.
 
-![Live demo - a real Incident Triage pipeline run: Sentinel sweeps the cluster, flags CRITICAL, and the DAG routes to Atlas live over SSE](docs/screenshots/demo.gif)
+![Composing a schedule: agents, execution mode, backend, safety tier, and cadence in one form](docs/screenshots/schedule-form.gif)
 
-*Live capture from the production deployment (3× speed): an Incident Triage pipeline fires, Sentinel sweeps the cluster and flags a `CRITICAL` finding, and the DAG routes to Atlas + Relay in real time - then a tour of Crews and the SLO dashboard.*
+*Composing a scheduled multi-agent operation: pick the agents, choose how they execute (parallel / sequential / meeting), select an execution backend and an enforced safety tier, cap the agentic turns, and set the cadence - every knob shown is a real control, not chrome.*
 
 ---
 
@@ -105,9 +105,9 @@ The UI is a flat dark dashboard with an amber primary and teal secondary accent 
 The 20-agent roster with search, category filters, and quick-task cards.
 
 ### Pipelines - conditional DAG orchestration
-![Pipeline replay with verdicts](docs/screenshots/pipeline-replay.gif)
+![A live pipeline run: conditional + verdict routing on a five-node DAG](docs/screenshots/demo.gif)
 
-A real run of the *Incident Triage* pipeline with both routing styles in play: Sentinel's sweep contained `CRITICAL`, so the graph escalated to **Atlas** while **Relay** (the always-edge) fired in parallel; Atlas investigated and reported `STATUS: attention`, so the `verdict === 'critical'` edge to the **Incident Response Commander** (an agent adopted from the agency catalog) correctly did not fire. Node labels show each agent's structured verdict; statuses stream onto the DAG live over SSE, and the builder below edits nodes and conditional edges in place.
+A live run captured at 3x speed, with both routing styles in play: Sentinel's sweep reports `STATUS: critical`, so the graph escalates to **Atlas** while **Relay** (the always-edge) fires in parallel; Atlas investigates and downgrades to `STATUS: ok`, so the `verdict === 'critical'` edge to the **Incident Response Commander** (an agent adopted from the agency catalog) correctly does not fire. Node labels show each agent's structured verdict as statuses stream onto the DAG over SSE; the builder below edits nodes and conditional edges in place, and the schedule bar runs the pipeline on a cron.
 
 ### Crews - saved agent teams
 ![Crews](docs/screenshots/crews.png?v=2)
@@ -128,10 +128,6 @@ A 140+ agent catalog synced from a public agent repository. One click adopts an 
 ![Schedules](docs/screenshots/schedules.png?v=4)
 
 Ten production-grade scheduled workflows spanning all three composition modes - parallel, sequential, and meeting.
-
-![New Schedule form walkthrough](docs/screenshots/schedule-form.gif)
-
-Creating a schedule from one form: pick which agents take part, choose a composition mode (parallel / sequential / meeting), scope the run to a specific app (the agents `cd` into it and read its `CLAUDE.md`), pick a model, an **execution backend** (subscription SSH vs Anthropic API), and a **safety tier** (read-only / controlled / supervised), then set the cadence with the cron builder.
 
 ![Run History](docs/screenshots/runs.png?v=3)
 
