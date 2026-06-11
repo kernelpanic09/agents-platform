@@ -54,7 +54,7 @@ async function ragRespondNode(state) {
 async function sshDispatchNode(state) {
   const { stdout, stderr, exitCode, timedOut } = await runClaude(
     state.messages.length > 0 ? state.messages[state.messages.length - 1] : state.task,
-    { cwd: state.cwd, model: state.model, backend: state.backend, runId: state.runId, agentId: state.agentId }
+    { cwd: state.cwd, model: state.model, backend: state.backend, runId: state.runId, agentId: state.agentId, mcpConfig: state.mcpConfig }
   );
 
   if (timedOut) {

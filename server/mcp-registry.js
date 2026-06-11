@@ -10,13 +10,13 @@ const SEED_MCP = {
     id: 'kubernetes',
     name: 'Kubernetes',
     description: 'Query and manage Kubernetes clusters — pods, deployments, services, logs, and resources',
-    package: '@anthropic/mcp-kubernetes',
+    package: 'mcp-server-kubernetes',
     category: 'infrastructure',
     color: '#326CE5',
-    url: 'https://github.com/anthropics/mcp-kubernetes',
+    url: 'https://github.com/Flux159/mcp-server-kubernetes',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-kubernetes'],
+      args: ['-y', 'mcp-server-kubernetes'],
       env: { KUBECONFIG: '/path/to/.kube/config' }
     }
   },
@@ -25,7 +25,7 @@ const SEED_MCP = {
     id: 'context7',
     name: 'Context7',
     description: 'Fetch up-to-date documentation and code examples for any library, framework, or API',
-    package: '@anthropic/mcp-context7',
+    package: '@upstash/context7-mcp',
     category: 'development',
     color: '#8B5CF6',
     url: 'https://github.com/upstash/context7',
@@ -39,13 +39,13 @@ const SEED_MCP = {
     id: 'playwright',
     name: 'Playwright',
     description: 'Browser automation and E2E testing — navigate pages, fill forms, take screenshots, run test suites',
-    package: '@anthropic/mcp-playwright',
+    package: '@playwright/mcp',
     category: 'testing',
     color: '#2EAD33',
-    url: 'https://github.com/anthropics/mcp-playwright',
+    url: 'https://github.com/microsoft/playwright-mcp',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-playwright']
+      args: ['-y', '@playwright/mcp@latest']
     }
   },
 
@@ -53,13 +53,13 @@ const SEED_MCP = {
     id: 'puppeteer',
     name: 'Puppeteer',
     description: 'Control headless Chrome — scrape pages, generate PDFs, capture screenshots, test UI',
-    package: '@anthropic/mcp-puppeteer',
+    package: '@modelcontextprotocol/server-puppeteer',
     category: 'testing',
     color: '#00D8A2',
-    url: 'https://github.com/anthropics/mcp-puppeteer',
+    url: 'https://github.com/modelcontextprotocol/servers',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-puppeteer']
+      args: ['-y', '@modelcontextprotocol/server-puppeteer']
     }
   },
 
@@ -67,14 +67,14 @@ const SEED_MCP = {
     id: 'github',
     name: 'GitHub',
     description: 'Manage repositories, issues, pull requests, branches, and code search via GitHub API',
-    package: '@anthropic/mcp-github',
+    package: '@modelcontextprotocol/server-github',
     category: 'development',
     color: '#F0F6FC',
-    url: 'https://github.com/anthropics/mcp-github',
+    url: 'https://github.com/modelcontextprotocol/servers',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-github'],
-      env: { GITHUB_TOKEN: '<your-github-token>' }
+      args: ['-y', '@modelcontextprotocol/server-github'],
+      env: { GITHUB_PERSONAL_ACCESS_TOKEN: '<your-github-token>' }
     }
   },
 
@@ -82,13 +82,13 @@ const SEED_MCP = {
     id: 'postgres',
     name: 'PostgreSQL',
     description: 'Query PostgreSQL databases — run SQL, inspect schemas, analyze data, manage migrations',
-    package: '@anthropic/mcp-postgres',
+    package: '@modelcontextprotocol/server-postgres',
     category: 'data',
     color: '#336791',
-    url: 'https://github.com/anthropics/mcp-postgres',
+    url: 'https://github.com/modelcontextprotocol/servers',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-postgres', 'postgresql://user:pass@localhost:5432/dbname']
+      args: ['-y', '@modelcontextprotocol/server-postgres', 'postgresql://user:pass@localhost:5432/dbname']
     }
   },
 
@@ -96,13 +96,13 @@ const SEED_MCP = {
     id: 'sqlite',
     name: 'SQLite',
     description: 'Query SQLite databases — run SQL, inspect tables, analyze local data files',
-    package: '@anthropic/mcp-sqlite',
+    package: 'mcp-server-sqlite',
     category: 'data',
     color: '#003B57',
-    url: 'https://github.com/anthropics/mcp-sqlite',
+    url: 'https://github.com/modelcontextprotocol/servers',
     config: {
-      command: 'npx',
-      args: ['-y', '@anthropic/mcp-sqlite', '--db-path', '/path/to/database.db']
+      command: 'uvx',
+      args: ['mcp-server-sqlite', '--db-path', '/path/to/database.db']
     }
   },
 
@@ -110,13 +110,13 @@ const SEED_MCP = {
     id: 'sequential-thinking',
     name: 'Sequential Thinking',
     description: 'Step-by-step reasoning for complex problems — break down tasks, track dependencies, revise approach',
-    package: '@anthropic/mcp-sequential-thinking',
+    package: '@modelcontextprotocol/server-sequential-thinking',
     category: 'reasoning',
     color: '#7C3AED',
-    url: 'https://github.com/anthropics/mcp-sequential-thinking',
+    url: 'https://github.com/modelcontextprotocol/servers',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-sequential-thinking']
+      args: ['-y', '@modelcontextprotocol/server-sequential-thinking']
     }
   },
 
@@ -124,13 +124,13 @@ const SEED_MCP = {
     id: 'brave-search',
     name: 'Brave Search',
     description: 'Web and local search via Brave API — find current information, research topics, discover resources',
-    package: '@anthropic/mcp-brave-search',
+    package: '@brave/brave-search-mcp-server',
     category: 'research',
     color: '#FB542B',
-    url: 'https://github.com/anthropics/mcp-brave-search',
+    url: 'https://github.com/brave/brave-search-mcp-server',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-brave-search'],
+      args: ['-y', '@brave/brave-search-mcp-server'],
       env: { BRAVE_API_KEY: '<your-brave-api-key>' }
     }
   },
@@ -139,13 +139,13 @@ const SEED_MCP = {
     id: 'memory',
     name: 'Memory',
     description: 'Persistent knowledge graph — store entities, relations, and observations across sessions',
-    package: '@anthropic/mcp-memory',
+    package: '@modelcontextprotocol/server-memory',
     category: 'reasoning',
     color: '#EC4899',
-    url: 'https://github.com/anthropics/mcp-memory',
+    url: 'https://github.com/modelcontextprotocol/servers',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-memory']
+      args: ['-y', '@modelcontextprotocol/server-memory']
     }
   },
 
@@ -153,13 +153,13 @@ const SEED_MCP = {
     id: 'filesystem',
     name: 'Filesystem',
     description: 'Read, write, search, and manage files and directories with controlled access',
-    package: '@anthropic/mcp-filesystem',
+    package: '@modelcontextprotocol/server-filesystem',
     category: 'infrastructure',
     color: '#F59E0B',
-    url: 'https://github.com/anthropics/mcp-filesystem',
+    url: 'https://github.com/modelcontextprotocol/servers',
     config: {
       command: 'npx',
-      args: ['-y', '@anthropic/mcp-filesystem', '/path/to/allowed/directory']
+      args: ['-y', '@modelcontextprotocol/server-filesystem', '/path/to/allowed/directory']
     }
   }
 };

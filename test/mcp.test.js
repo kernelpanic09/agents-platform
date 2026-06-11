@@ -23,16 +23,16 @@ test('initMcpRegistry: seeds the catalog into the table', () => {
 });
 
 test('checkMcpEnv: reports required vs missing env vars', () => {
-  const github = getMcp(db, 'github'); // declares GITHUB_TOKEN
+  const github = getMcp(db, 'github'); // declares GITHUB_PERSONAL_ACCESS_TOKEN
   const before = checkMcpEnv(github);
-  assert.deepEqual(before.required, ['GITHUB_TOKEN']);
+  assert.deepEqual(before.required, ['GITHUB_PERSONAL_ACCESS_TOKEN']);
   assert.equal(before.ok, false);
-  assert.deepEqual(before.missing, ['GITHUB_TOKEN']);
+  assert.deepEqual(before.missing, ['GITHUB_PERSONAL_ACCESS_TOKEN']);
 
-  process.env.GITHUB_TOKEN = 'x';
+  process.env.GITHUB_PERSONAL_ACCESS_TOKEN = 'x';
   const after2 = checkMcpEnv(getMcp(db, 'github'));
   assert.equal(after2.ok, true);
-  delete process.env.GITHUB_TOKEN;
+  delete process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
 
   // a server with no env requirements
   assert.equal(checkMcpEnv(getMcp(db, 'memory')).required.length, 0);

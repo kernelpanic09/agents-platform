@@ -3,6 +3,7 @@ import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import { buildAgentPrompt, runClaude, parseClaudeJson, extractSummary, extractVerdict, resolveInference, sendDiscordNotify } from '../executor.js';
 import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
+import { agentDispatchContext } from '../dispatch-context.js';
 import { IS_DEMO } from '../demo.js';
 
 // ---------------------------------------------------------------------------
@@ -189,12 +190,13 @@ export async function executePipelineRun({ db, pipeline, task, pipelineRunId }) 
       ? preds.map(p => `## From ${nodeStates[p]?.label || p}:\n${state.outputs[p] || ''}`).join('\n\n')
       : null;
     const inf = resolveInference(agent, { model: node.model || defaultModel });
+    const ctx = agentDispatchContext(db, agent, { backend });
     const prompt = buildAgentPrompt(agent, task, upstream, 'read_only');
 
     const { stdout, stderr, exitCode, timedOut } = await runClaude(prompt, {
       cwd: '/tmp', model: inf.model || node.model || defaultModel,
       temperature: inf.temperature, maxTokens: inf.maxTokens, backend, agentId: agent.id,
-      tier: 'read_only', maxTurns: getSetting('default_max_turns'),
+      tier: 'read_only', maxTurns: getSetting('default_max_turns'), mcpConfig: ctx.mcpConfig,
     });
 
     if (timedOut || exitCode !== 0) {

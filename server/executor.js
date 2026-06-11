@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { randomBytes } from 'crypto';
 import { policyToPrompt, resolveTier, tierCliFlags } from './safety-prompt.js';
 import { recordTrace } from './observability/telemetry.js';
 import { getSetting } from './settings.js';
@@ -157,10 +158,52 @@ function safeModel(m) {
 }
 
 /**
+ * Assemble the remote bash command for one `claude -p` dispatch. Pure function
+ * so the command shape is unit-testable.
+ *
+ * When an MCP config is provisioned (agent declared MCP servers and the
+ * registry resolved them), it is written to a temp file on the run host and
+ * passed via --mcp-config WITH --strict-mcp-config: only platform-provisioned
+ * servers load, never whatever the host user happens to have configured.
+ *
+ * IMPORTANT: the command travels through TWO remote shell evaluations
+ * (sshd's login shell, then the inner `bash -l -c`), so it must contain NO
+ * shell variables or $(...) substitutions - the outer pass would expand them
+ * before the inner shell runs (an unset "$VAR" becomes empty and the command
+ * silently degrades). The temp file path is generated Node-side instead, and
+ * a `trap ... EXIT` handles cleanup while naturally preserving claude's exit
+ * code. When no MCP config is present the command is byte-identical to the
+ * pre-provisioning shape (zero behavior change).
+ */
+export function buildRemoteCommand({ b64Prompt, cwd = '/tmp', model, turnsFlag = '', tierFlags = '', mcpB64 = null, mcpPath = null }) {
+  const claudeCmd = `claude -p --output-format json --model ${model}${turnsFlag}${tierFlags}`;
+  const tail = '--no-session-persistence --dangerously-skip-permissions';
+  const pre = [
+    'source ~/.nvm/nvm.sh >/dev/null 2>&1;',
+    'nvm use 20 >/dev/null 2>&1;',
+    `cd ${cwd} &&`,
+  ];
+  if (mcpB64 && mcpPath) {
+    return [
+      ...pre,
+      `trap 'rm -f ${mcpPath}' EXIT;`,
+      `echo '${mcpB64}' | base64 -d > ${mcpPath} &&`,
+      `echo '${b64Prompt}' | base64 -d | ${claudeCmd} --mcp-config ${mcpPath} --strict-mcp-config ${tail}`,
+    ].join(' ');
+  }
+  return [...pre, `echo '${b64Prompt}' | base64 -d | ${claudeCmd} ${tail}`].join(' ');
+}
+
+/** Node-side temp path for the provisioned MCP config (no $(mktemp): see buildRemoteCommand). */
+export function mcpTempPath() {
+  return `/tmp/agents-mcp-${randomBytes(6).toString('hex')}.json`;
+}
+
+/**
  * Run one `claude -p` invocation over SSH to the remote host.
  * Returns { stdout, stderr, exitCode, timedOut }.
  */
-export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms'), sshTarget = getSetting('ssh_target'), sshKeyPath = SSH_KEY_PATH, model = getSetting('default_model'), cwd = '/tmp', maxTurns = 0, tier = null, runId = null, agentId = null } = {}) {
+export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms'), sshTarget = getSetting('ssh_target'), sshKeyPath = SSH_KEY_PATH, model = getSetting('default_model'), cwd = '/tmp', maxTurns = 0, tier = null, runId = null, agentId = null, mcpConfig = null } = {}) {
   return new Promise((resolve) => {
     const started = Date.now();
     const b64 = Buffer.from(prompt, 'utf-8').toString('base64');
@@ -170,17 +213,13 @@ export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms
     // Tier enforcement: read_only disables file-mutation tools at the CLI
     // permission layer (real guardrail), on top of the prompt preamble.
     const tierFlags = tierCliFlags(tier);
+    const mcpB64 = mcpConfig ? Buffer.from(JSON.stringify(mcpConfig), 'utf-8').toString('base64') : null;
     // Claude Code running from /tmp does not walk up into /home/ubuntu, so
     // the user-level CLAUDE.md is not loaded — no swap required. This lets
     // multiple parallel calls run without racing on a shared file.
     // When cwd is an app directory, claude DOES walk up looking for CLAUDE.md,
     // which is exactly what we want (app-scoped context).
-    const remoteCmd = [
-      'source ~/.nvm/nvm.sh >/dev/null 2>&1;',
-      'nvm use 20 >/dev/null 2>&1;',
-      `cd ${safe} &&`,
-      `echo '${b64}' | base64 -d | claude -p --output-format json --model ${chosenModel}${turnsFlag}${tierFlags} --no-session-persistence --dangerously-skip-permissions`,
-    ].join(' ');
+    const remoteCmd = buildRemoteCommand({ b64Prompt: b64, cwd: safe, model: chosenModel, turnsFlag, tierFlags, mcpB64, mcpPath: mcpB64 ? mcpTempPath() : null });
 
     const sshArgs = [
       '-i', sshKeyPath,

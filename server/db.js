@@ -242,6 +242,12 @@ export function initDb() {
     db.exec(`ALTER TABLE runs ADD COLUMN verdict TEXT DEFAULT NULL`);
     console.log('[db] migrated: runs.verdict added');
   }
+  // What each agent's declarations provisioned into its dispatch
+  // (JSON: { agentName: { mcp: [ids], skills: [slugs] } })
+  if (!runCols0.has('provisioning')) {
+    db.exec(`ALTER TABLE runs ADD COLUMN provisioning TEXT DEFAULT NULL`);
+    console.log('[db] migrated: runs.provisioning added');
+  }
 
   // Durable job queue + retry/backoff (P3)
   const runCols = new Set(db.prepare(`PRAGMA table_info(runs)`).all().map(c => c.name));
