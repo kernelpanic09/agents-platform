@@ -17,7 +17,7 @@ An AI agent orchestration platform: a roster of agent personas dispatched agains
 
 Agents Platform is a full-stack application for building, managing, and running AI agents. Each agent has a persona, system prompt, skill set, tool inventory, knowledge sources, and its own inference profile (model, temperature, max tokens). The platform dispatches agents via SSH to a remote Claude Code session (or the Anthropic API), routes multi-agent work through LangGraph - including user-built DAG pipelines with conditional branching - tracks every run with token/cost/latency telemetry, and streams run progress live into the UI.
 
-It ships with 20 pre-built agent personas covering infrastructure, development, security, media, and automation domains, plus 10 production-grade schedule templates. A demo mode runs locally with docker-compose -- no SSH target needed.
+It ships with 20 pre-built agent personas covering infrastructure, development, security, media, and automation domains, plus 10 production-grade schedule templates. A demo mode runs locally with docker-compose - no SSH target needed.
 
 The platform was built in five planned phases (visibility → configurability → trust → self-improvement → composability); the full roadmap, meeting notes, and prioritization live in [`docs/planning/`](docs/planning/).
 
@@ -224,13 +224,13 @@ cron cadence. Each bundles a curated set of agents, a rich task prompt, and a re
 git clone https://github.com/kernelpanic09/agents-platform.git
 cd agents-platform
 cp .env.example .env
-# Edit .env -- set ANTHROPIC_API_KEY at minimum
+# Edit .env - set ANTHROPIC_API_KEY at minimum
 docker compose up
 ```
 
 Open http://localhost:3001.
 
-Demo mode is on by default (`DEMO_MODE=true` in docker-compose.yml). SSH dispatch is disabled in demo mode -- all other features work.
+Demo mode is on by default (`DEMO_MODE=true` in docker-compose.yml). SSH dispatch is disabled in demo mode - all other features work.
 
 On first start, Ollama needs to pull the embedding model:
 
@@ -539,6 +539,17 @@ Set `QDRANT_URL` and `OLLAMA_URL` in your `.env`.
 **SSH Dispatch:**
 
 Set `SSH_TARGET=user@your-host` and `ENABLE_SCHEDULER=true` in `.env`. The target host must have Claude Code installed and accessible via SSH key auth. Set `SSH_KEY_PATH` if the key is not at the default location.
+
+---
+
+## Related projects
+
+Part of a portfolio of infrastructure and AI tooling that fits together:
+
+- [terraform-aws-modules](https://github.com/kernelpanic09/terraform-aws-modules) - opinionated Terraform modules; provides the `bedrock-knowledge-base` (RAG) and `identity-center` (human access) patterns this platform builds on.
+- [mcp-server-aws](https://github.com/kernelpanic09/mcp-server-aws) - an MCP server that gives agents scoped, read-only access to AWS without broad shell permissions.
+- [k8s-ai-operator](https://github.com/kernelpanic09/k8s-ai-operator) - a Kubernetes operator that exposes Bedrock models as cluster resources, designed to serve workloads like this one.
+- [github-actions-platform](https://github.com/kernelpanic09/github-actions-platform) - the reusable CI/CD workflows used to build, test, and release these repos.
 
 ---
 
