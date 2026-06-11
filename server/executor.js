@@ -45,6 +45,16 @@ function inlineSkillsSection(inlineSkills) {
   return parts.join('');
 }
 
+/** Episodic memory section: what this agent learned from previous runs. */
+function memoriesSection(memories) {
+  if (!memories || !memories.length) return '';
+  const parts = ['\n\n---\n\n# What you remember from previous runs\nDistilled observations from your past runs in this environment. Trust but verify - they may be stale:\n'];
+  for (const m of memories) {
+    parts.push(`- ${m.content}${m.created_at ? ` _(noted ${String(m.created_at).slice(0, 10)})_` : ''}\n`);
+  }
+  return parts.join('');
+}
+
 /**
  * Build the prompt for a single agent in parallel/sequential mode.
  * `ctx` is an agentDispatchContext: inlineSkills (api/openai backends) are
@@ -55,6 +65,7 @@ export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null, tier
   parts.push(`# You are ${agent.name} — ${agent.title}\n`);
   parts.push(agent.system_prompt || agent.tagline || '');
   parts.push(inlineSkillsSection(ctx?.inlineSkills));
+  parts.push(memoriesSection(ctx?.memories));
   parts.push('\n\n---\n\n# Task\n');
   parts.push(taskPrompt);
   if (priorTranscript) {

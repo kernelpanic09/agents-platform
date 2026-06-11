@@ -5,6 +5,7 @@
 // one-line consumers instead of each re-implementing the lookups.
 import { getMcp } from './mcp-registry.js';
 import { skillsForAgent, parseSkillMd } from './skills.js';
+import { memoriesForPrompt } from './memory.js';
 import { getSetting } from './settings.js';
 
 // Inline fallback (api/openai backends) caps each skill body so a long manual
@@ -88,7 +89,7 @@ function toInline(skill) {
  * backends are single chat completions with no tool runtime.
  */
 export function agentDispatchContext(db, agent, { backend = 'subscription' } = {}) {
-  const ctx = { mcpConfig: null, skills: null, inlineSkills: null, provisioned: { mcp: [], skills: [] } };
+  const ctx = { mcpConfig: null, skills: null, inlineSkills: null, memories: null, provisioned: { mcp: [], skills: [] } };
   if (backend === 'subscription') {
     const mcp = buildAgentMcp(db, agent);
     if (mcp) {
@@ -101,6 +102,13 @@ export function agentDispatchContext(db, agent, { backend = 'subscription' } = {
     ctx.provisioned.skills = skills.map(s => s.slug);
     if (backend === 'subscription') ctx.skills = skills.map(s => ({ slug: s.slug, content: s.content }));
     else ctx.inlineSkills = skills.map(toInline);
+  }
+  // Episodic memory: backend-agnostic (always prompt-level).
+  if (agent?.id != null) {
+    try {
+      const mem = memoriesForPrompt(db, agent.id);
+      if (mem.length) ctx.memories = mem;
+    } catch { /* memory is best-effort */ }
   }
   return ctx;
 }

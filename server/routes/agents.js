@@ -4,6 +4,7 @@ import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { getSetting } from '../settings.js';
 import { skillsForAgent, agentSkillIds, setAgentSkills } from '../skills.js';
+import { listMemories, addMemory, updateMemory, deleteMemory } from '../memory.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROMPTS_DIR = resolve(__dirname, '../../prompts');
@@ -106,6 +107,38 @@ export default function agentsRouter(db) {
     if (!Array.isArray(ids)) return res.status(400).json({ error: 'skill_ids must be an array' });
     setAgentSkills(db, id, ids.map(Number).filter(Number.isFinite));
     res.json({ skills: skillsForAgent(db, id), skill_ids: agentSkillIds(db, id) });
+  });
+
+  // Episodic memory: list / add / edit / delete an agent's memories.
+  router.get('/:id/memories', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid agent ID' });
+    res.json(listMemories(db, id));
+  });
+
+  router.post('/:id/memories', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid agent ID' });
+    if (!stmtGetAgent.get(id)) return res.status(404).json({ error: 'Agent not found' });
+    const r = addMemory(db, id, req.body?.content, { kind: req.body?.kind || 'manual', pinned: !!req.body?.pinned });
+    if (!r) return res.status(400).json({ error: 'content is required' });
+    res.status(201).json(listMemories(db, id));
+  });
+
+  router.patch('/:id/memories/:mid', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const mid = parseInt(req.params.mid, 10);
+    if (isNaN(id) || isNaN(mid)) return res.status(400).json({ error: 'Invalid ID' });
+    const m = updateMemory(db, mid, req.body || {});
+    if (!m) return res.status(404).json({ error: 'Memory not found' });
+    res.json(m);
+  });
+
+  router.delete('/:id/memories/:mid', (req, res) => {
+    const mid = parseInt(req.params.mid, 10);
+    if (isNaN(mid)) return res.status(400).json({ error: 'Invalid ID' });
+    if (!deleteMemory(db, mid)) return res.status(404).json({ error: 'Memory not found' });
+    res.json({ success: true });
   });
 
   // GET /api/agents/:id/prompt-versions — system-prompt history (newest first).

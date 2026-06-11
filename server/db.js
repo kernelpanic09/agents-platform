@@ -358,6 +358,22 @@ export function initDb() {
     );
   `);
 
+  // Per-agent episodic memory: distilled post-run, injected at the next
+  // dispatch (pinned first, then newest). Pinned memories survive pruning.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agent_memories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agent_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      kind TEXT DEFAULT 'learning',
+      source_run_id INTEGER,
+      pinned INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_memories_agent ON agent_memories(agent_id);
+  `);
+
   // Seed if empty
   const count = db.prepare('SELECT COUNT(*) as count FROM agents').get();
   if (count.count === 0) {

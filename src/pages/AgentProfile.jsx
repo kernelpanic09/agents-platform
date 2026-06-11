@@ -228,6 +228,89 @@ function AttachedSkillsCard({ agentId, accent }) {
   );
 }
 
+function MemoryCard({ agentId, accent }) {
+  const [memories, setMemories] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    fetch(`/api/agents/${agentId}/memories`).then(r => r.json()).then(setMemories).catch(() => {});
+  }, [agentId]);
+  useEffect(() => { load(); }, [load]);
+
+  const add = async () => {
+    if (!draft.trim()) return;
+    setBusy(true);
+    try {
+      await fetch(`/api/agents/${agentId}/memories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: draft.trim() }),
+      });
+      setDraft('');
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const togglePin = async (m) => {
+    await fetch(`/api/agents/${agentId}/memories/${m.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinned: !m.pinned }),
+    });
+    load();
+  };
+
+  const remove = async (m) => {
+    await fetch(`/api/agents/${agentId}/memories/${m.id}`, { method: 'DELETE' });
+    load();
+  };
+
+  const KIND_STYLES = { incident: 'text-red-300', manual: 'text-teal-300', learning: 'text-zinc-400' };
+
+  return (
+    <div className="glass rounded-2xl p-6 mb-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Database size={16} style={{ color: accent }} aria-hidden="true" />
+        <h2 className="font-semibold">Memory</h2>
+        <span className="text-[11px] text-zinc-500">{memories.length} entr{memories.length === 1 ? 'y' : 'ies'}</span>
+      </div>
+      <p className="text-xs text-zinc-500 mb-3">Distilled after each run, injected into the next dispatch (pinned first, then newest). Pinned entries never expire.</p>
+      <div className="flex gap-2 mb-3">
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()}
+          placeholder="Add a memory manually (e.g. an environment fact this agent should always know)"
+          className="flex-1 bg-zinc-950/60 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-violet-500/50" />
+        <button onClick={add} disabled={busy || !draft.trim()}
+          className="text-sm px-3 py-1.5 rounded-lg bg-zinc-800 border border-white/10 hover:bg-zinc-700 disabled:opacity-40">Add</button>
+      </div>
+      {memories.length === 0 && <div className="text-sm text-zinc-500">Nothing remembered yet — memories appear after successful runs.</div>}
+      <ul className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+        {memories.map(m => (
+          <li key={m.id} className="flex items-start gap-2 bg-zinc-950/40 border border-white/5 rounded-lg px-3 py-2">
+            <button onClick={() => togglePin(m)} title={m.pinned ? 'Unpin' : 'Pin (never pruned, injected first)'}
+              className={`mt-0.5 shrink-0 ${m.pinned ? 'text-amber-400' : 'text-zinc-600 hover:text-zinc-300'}`}>
+              <Sparkles size={13} fill={m.pinned ? 'currentColor' : 'none'} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm leading-snug">{m.content}</div>
+              <div className="text-[10px] text-zinc-600 mt-0.5">
+                <span className={KIND_STYLES[m.kind] || 'text-zinc-500'}>{m.kind}</span>
+                {' · '}{m.created_at ? new Date(m.created_at + 'Z').toLocaleString() : ''}
+                {m.source_run_id ? <> · <Link to={`/schedules/runs/${m.source_run_id}`} className="underline hover:text-zinc-400">run #{m.source_run_id}</Link></> : null}
+              </div>
+            </div>
+            <button onClick={() => remove(m)} className="shrink-0 text-zinc-600 hover:text-red-400 mt-0.5 text-xs" title="Forget">
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function AgentProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -464,6 +547,9 @@ export default function AgentProfile() {
       {/* Skills / Tools / MCP — 3 columns */}
       {/* Attached skills (SKILL.md) — materialized into the run workspace at dispatch */}
       <AttachedSkillsCard agentId={agent.id} accent={agent.color} />
+
+      {/* Episodic memory — distilled post-run, injected at next dispatch */}
+      <MemoryCard agentId={agent.id} accent={agent.color} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="glass rounded-2xl p-6">

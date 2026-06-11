@@ -5,6 +5,7 @@ import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
 import { resolveTier } from '../safety-prompt.js';
 import { agentDispatchContext, meetingDispatchContext, hasProvisioning } from '../dispatch-context.js';
+import { distillRunMemories } from '../memory.js';
 import { IS_DEMO } from '../demo.js';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
@@ -196,6 +197,15 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
       `An agent reported STATUS: critical.\n${(summary || '').slice(0, 400)}\nView: ${APP_BASE_URL}/schedules/runs/${runId}`,
       15158332,
     ).catch(() => {});
+  }
+
+  // Episodic memory: distill durable learnings from this run's outputs.
+  // Fire-and-forget - never blocks or fails the run path. Meetings are skipped
+  // (one transcript voices everyone; attribution would be noise).
+  if (status === 'success' && !IS_DEMO && schedule.mode !== 'meeting') {
+    const outputs = perAgentOutput
+      || (agents.length === 1 && transcript ? { [agents[0].name]: transcript } : null);
+    if (outputs) distillRunMemories({ db, runId, agents, outputs }).catch(() => {});
   }
 
   emitRunEvent(runId, { type: 'done', status, summary });

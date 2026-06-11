@@ -15,6 +15,9 @@ export const SETTINGS_SCHEMA = [
   { key: 'mcp_provisioning', group: 'Execution', label: 'MCP provisioning', type: 'enum', options: ['on', 'off'], env: 'MCP_PROVISIONING', default: 'on', editableLive: true, description: "Provision each agent's declared MCP servers into SSH dispatch (--mcp-config + --strict-mcp-config). off = dispatch without MCP injection." },
   { key: 'skill_provisioning', group: 'Execution', label: 'Skill provisioning', type: 'enum', options: ['on', 'off'], env: 'SKILL_PROVISIONING', default: 'on', editableLive: true, description: "Materialize each agent's attached skills (SKILL.md) into the run workspace's .claude/skills/ (subscription backend) or inline them into the prompt (api/openai). off = dispatch without skills." },
 
+  { key: 'memory_injection', group: 'Memory', label: 'Memory injection', type: 'enum', options: ['on', 'off'], env: 'MEMORY_INJECTION', default: 'on', editableLive: true, description: "Inject each agent's episodic memories (pinned first, then newest) into its dispatch prompt." },
+  { key: 'memory_distillation', group: 'Memory', label: 'Memory distillation', type: 'enum', options: ['on', 'off'], env: 'MEMORY_DISTILLATION', default: 'on', editableLive: true, description: 'After each successful run, distill durable learnings from agent output via the aux LLM backend (local models work; with no backend at all, only attention/critical summaries are remembered).' },
+
   { key: 'default_model', group: 'Models', label: 'Default model', type: 'string', env: 'CLAUDE_MODEL', default: 'sonnet', editableLive: true, description: 'Fallback model when an agent/schedule/run sets none.' },
   { key: 'model_allowlist', group: 'Models', label: 'Model allowlist', type: 'string', default: 'haiku,sonnet,opus', editableLive: true, description: 'Comma-separated model IDs valid anywhere — add a new model here, no redeploy.' },
 
