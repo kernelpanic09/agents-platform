@@ -64,7 +64,17 @@ export default function runsRouter(db, scheduler) {
       ? db.prepare(`SELECT id, name, title, color, icon_id FROM agents WHERE id IN (${agentIds.map(() => '?').join(',')})`).all(...agentIds)
       : [];
 
-    res.json({ ...parseRun(row), agents });
+    // Step timelines persisted by stream-json dispatch (one trace per agent).
+    const agentSteps = {};
+    try {
+      const nameById = Object.fromEntries(agents.map(a => [a.id, a.name]));
+      for (const t of db.prepare(`SELECT agent_id, steps FROM traces WHERE run_id = ? AND steps IS NOT NULL ORDER BY id`).all(id)) {
+        const name = t.agent_id != null ? (nameById[t.agent_id] || `agent-${t.agent_id}`) : 'Meeting';
+        try { agentSteps[name] = JSON.parse(t.steps); } catch { /* skip malformed */ }
+      }
+    } catch { /* steps are optional */ }
+
+    res.json({ ...parseRun(row), agents, agent_steps: agentSteps });
   });
 
   // GET /api/runs/:id/stream — Server-Sent Events for the Live Run Theater.

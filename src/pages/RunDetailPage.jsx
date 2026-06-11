@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import VerdictBadge from '../components/VerdictBadge';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, XCircle, Loader, Clock, RotateCw, FileText, Users, Code } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Loader, Clock, RotateCw, FileText, Users, Code, ListTree } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
+import StepTimeline from '../components/StepTimeline';
 
 function StatusIcon({ status, size = 16 }) {
   const map = {
@@ -59,6 +60,7 @@ export default function RunDetailPage() {
   const [run, setRun] = useState(null);
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState({}); // agentName -> { status, summary }
+  const [liveSteps, setLiveSteps] = useState({}); // agentName -> [step]
   const [streaming, setStreaming] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const setTab = useCallback((newTab) => {
@@ -72,6 +74,7 @@ export default function RunDetailPage() {
     let es = null;
     setLoading(true);
     setLive({});
+    setLiveSteps({});
     setStreaming(false);
     fetch(`/api/runs/${id}`)
       .then(r => r.json())
@@ -86,6 +89,12 @@ export default function RunDetailPage() {
             let ev; try { ev = JSON.parse(e.data); } catch { return; }
             if (ev.type === 'agent_start') {
               setLive(prev => ({ ...prev, [ev.agent]: { status: 'running' } }));
+            } else if (ev.type === 'step') {
+              // Tool-level timeline from stream-json dispatch (cap per agent)
+              setLiveSteps(prev => {
+                const cur = prev[ev.agent] || [];
+                return { ...prev, [ev.agent]: [...cur.slice(-199), ev.step] };
+              });
             } else if (ev.type === 'agent_done') {
               setLive(prev => ({ ...prev, [ev.agent]: { status: ev.status, summary: ev.summary } }));
             } else if (ev.type === 'done') {
@@ -278,6 +287,11 @@ export default function RunDetailPage() {
                     </span>
                   </div>
                   {st.summary && <div className="text-xs text-zinc-400 mt-2 leading-relaxed">{st.summary}</div>}
+                  {(liveSteps[name] || []).length > 0 && (
+                    <div className="mt-2 max-h-44 overflow-y-auto pr-1">
+                      <StepTimeline steps={liveSteps[name]} compact />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -350,12 +364,23 @@ export default function RunDetailPage() {
                 const agent = agentByName[name];
                 const color = agent?.color || '#A78BFA';
                 const nameColor = `color-mix(in srgb, ${color} 80%, white)`;
+                const steps = (run.agent_steps || {})[name] || [];
                 return (
                   <div key={name} className="bg-zinc-900/50 border border-white/5 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/5">
                       {agent && <AgentAvatar iconId={agent.icon_id} color={color} size={22} />}
                       <span className="font-medium" style={{ color: nameColor }}>{name}</span>
                     </div>
+                    {steps.length > 0 && (
+                      <details className="mb-3 group">
+                        <summary className="flex items-center gap-1.5 text-[11px] text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300">
+                          <ListTree size={12} /> Steps ({steps.length})
+                        </summary>
+                        <div className="mt-2 max-h-56 overflow-y-auto pr-1 border-l border-white/5 pl-2">
+                          <StepTimeline steps={steps} compact />
+                        </div>
+                      </details>
+                    )}
                     <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono max-h-96 overflow-y-auto leading-relaxed">
                       {typeof output === 'string' ? output : JSON.stringify(output, null, 2)}
                     </pre>

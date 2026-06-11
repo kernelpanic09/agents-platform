@@ -70,7 +70,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
       recordProvision('Meeting', mctx);
       const prompt = buildMeetingPrompt(agents, schedule.task_prompt, tier, mctx);
       emitRunEvent(runId, { type: 'agent_start', agent: 'Meeting' });
-      const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, mcpConfig: mctx.mcpConfig, skills: mctx.skills });
+      const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, mcpConfig: mctx.mcpConfig, skills: mctx.skills, onStreamEvent: (step) => emitRunEvent(runId, { type: 'step', agent: 'Meeting', step }) });
       if (timedOut) { status = 'timeout'; errorMessage = 'Run exceeded timeout'; }
       else if (ec !== 0) { status = 'failed'; errorMessage = `claude exited ${ec}: ${stderr.slice(0, 500)}`; }
       exitCode = ec ?? -1;
@@ -124,7 +124,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
           const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
           recordProvision(agent.name, ctx);
           const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior, tier, ctx);
-          const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills });
+          const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills, onStreamEvent: (step) => emitRunEvent(runId, { type: 'step', agent: agent.name, step }) });
           if (timedOut) { status = 'timeout'; errorMessage = `Agent ${agent.name} timed out`; outputs[agent.name] = '[timed out]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'timeout' }); break; }
           if (ec !== 0) { status = 'failed'; errorMessage = `Agent ${agent.name} exited ${ec}`; outputs[agent.name] = '[failed]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'failed' }); break; }
           const parsed = parseClaudeJson(stdout);
@@ -142,7 +142,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
             const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
             recordProvision(agent.name, ctx);
             const prompt = buildAgentPrompt(agent, schedule.task_prompt, null, tier, ctx);
-            const result = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills });
+            const result = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills, onStreamEvent: (step) => emitRunEvent(runId, { type: 'step', agent: agent.name, step }) });
             const ok = !result.timedOut && result.exitCode === 0;
             emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: result.timedOut ? 'timeout' : ok ? 'success' : 'failed', summary: ok ? extractSummary(parseClaudeJson(result.stdout).result || '') : undefined });
             return { agent, ...result };
@@ -205,7 +205,14 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   if (status === 'success' && !IS_DEMO && schedule.mode !== 'meeting') {
     const outputs = perAgentOutput
       || (agents.length === 1 && transcript ? { [agents[0].name]: transcript } : null);
-    if (outputs) distillRunMemories({ db, runId, agents, outputs }).catch(() => {});
+    if (outputs) {
+      distillRunMemories({ db, runId, agents, outputs })
+        .then((r) => {
+          if (r.stored) console.log(`[memory] run ${runId}: stored ${r.stored} memor${r.stored === 1 ? 'y' : 'ies'}`);
+          else if (r.skipped) console.warn(`[memory] run ${runId}: distillation skipped - ${r.skipped}`);
+        })
+        .catch(() => {});
+    }
   }
 
   emitRunEvent(runId, { type: 'done', status, summary });

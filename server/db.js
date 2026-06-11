@@ -226,6 +226,11 @@ export function initDb() {
     db.exec(`ALTER TABLE traces ADD COLUMN source TEXT DEFAULT 'api'`);
     console.log('[db] migrated: traces.source added');
   }
+  // Step-level timeline parsed from stream-json dispatch (JSON array)
+  if (!traceCols.has('steps')) {
+    db.exec(`ALTER TABLE traces ADD COLUMN steps TEXT DEFAULT NULL`);
+    console.log('[db] migrated: traces.steps added');
+  }
   const agentCols = new Set(db.prepare(`PRAGMA table_info(agents)`).all().map(c => c.name));
   if (!agentCols.has('model_config')) {
     db.exec(`ALTER TABLE agents ADD COLUMN model_config TEXT DEFAULT NULL`);

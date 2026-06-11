@@ -4,6 +4,7 @@ import { AgentState } from './state.js';
 import { ragSearch } from '../rag/chat.js';
 import { runClaude, extractSummary, parseClaudeJson } from '../executor.js';
 import { recordTrace } from '../observability/telemetry.js';
+import { emitRunEvent } from '../run-stream.js';
 
 async function ragRetrieveNode(state) {
   const results = await ragSearch(state.task, { agentId: state.agentId, limit: 5 });
@@ -54,7 +55,10 @@ async function ragRespondNode(state) {
 async function sshDispatchNode(state) {
   const { stdout, stderr, exitCode, timedOut } = await runClaude(
     state.messages.length > 0 ? state.messages[state.messages.length - 1] : state.task,
-    { cwd: state.cwd, model: state.model, backend: state.backend, runId: state.runId, agentId: state.agentId, mcpConfig: state.mcpConfig, skills: state.skills }
+    {
+      cwd: state.cwd, model: state.model, backend: state.backend, runId: state.runId, agentId: state.agentId, mcpConfig: state.mcpConfig, skills: state.skills,
+      onStreamEvent: state.runId != null ? (step) => emitRunEvent(state.runId, { type: 'step', agent: state.agentName, step }) : null,
+    }
   );
 
   if (timedOut) {

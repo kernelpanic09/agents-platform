@@ -197,6 +197,7 @@ export async function executePipelineRun({ db, pipeline, task, pipelineRunId }) 
       cwd: '/tmp', model: inf.model || node.model || defaultModel,
       temperature: inf.temperature, maxTokens: inf.maxTokens, backend, agentId: agent.id,
       tier: 'read_only', maxTurns: getSetting('default_max_turns'), mcpConfig: ctx.mcpConfig, skills: ctx.skills,
+      onStreamEvent: (step) => emitRunEvent(channel, { type: 'step', node: node.id, agent: agent.name, step }),
     });
 
     if (timedOut || exitCode !== 0) {
