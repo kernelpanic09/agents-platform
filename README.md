@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/kernelpanic09/agents-platform?include_prereleases&sort=semver)](https://github.com/kernelpanic09/agents-platform/releases)
 [![Last commit](https://img.shields.io/github/last-commit/kernelpanic09/agents-platform)](https://github.com/kernelpanic09/agents-platform/commits)
 
-An AI agent orchestration platform: a roster of agent personas dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop - with full cost/latency observability and platform SLOs.
+An AI agent orchestration platform: a roster of agent personas equipped with **skills (the SKILL.md open standard), provisioned MCP tool servers, and episodic memory**, dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE **down to the individual tool call**, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop - with full cost/latency observability and platform SLOs.
 
 ![Composing a schedule: agents, execution mode, backend, safety tier, and cadence in one form](docs/screenshots/schedule-form.gif)
 
@@ -15,7 +15,7 @@ An AI agent orchestration platform: a roster of agent personas dispatched agains
 
 ## What is this
 
-Agents Platform is a full-stack application for building, managing, and running AI agents. Each agent has a persona, system prompt, skill set, tool inventory, knowledge sources, and its own inference profile (model, temperature, max tokens). The platform dispatches agents via SSH to a remote Claude Code session (or the Anthropic API), routes multi-agent work through LangGraph - including user-built DAG pipelines with conditional branching - tracks every run with token/cost/latency telemetry, and streams run progress live into the UI.
+Agents Platform is a full-stack application for building, managing, and running AI agents. Each agent has a persona, system prompt, attached **skills** (SKILL.md), declared **MCP servers** (provisioned into dispatch), **episodic memory** (distilled from past runs), knowledge sources, and its own inference profile (model, temperature, max tokens). The platform dispatches agents via SSH to a remote Claude Code session (or the Anthropic API), routes multi-agent work through LangGraph - including user-built DAG pipelines with conditional branching - tracks every run with token/cost/latency telemetry **down to per-tool-call step timelines**, and streams run progress live into the UI.
 
 It ships with 20 pre-built agent personas covering infrastructure, development, security, media, and automation domains, plus 10 production-grade schedule templates. A demo mode runs locally with docker-compose - no SSH target needed.
 
@@ -36,25 +36,43 @@ The platform was built in five planned phases (visibility → configurability �
 ## Features
 
 ### 1. Agent Roster
-- 20 persona definitions: name, title, tagline, system prompt, skills, tools, MCP servers, knowledge sources, example tasks, and related agents
+- 20 persona definitions: name, title, tagline, system prompt, expertise, tools, MCP servers, knowledge sources, example tasks, and related agents
 - Full CRUD via REST API and in-app forms; per-agent accent color and SVG avatar (20 unique illustrations)
 - **Per-agent inference profiles** - model, temperature, and max-tokens overrides applied at execution time
 - **Prompt version history** - every system-prompt edit auto-snapshots the prior version; view, diff, and restore from the agent profile
 - **Adopt from catalog** - one-click adoption from a 140+ agent public catalog into the runnable roster; adopted agents carry provenance (`source_pack`) and become schedulable, crewable, and pipeline-ready alongside the built-ins
 
-### 2. Orchestration: Modes, Pipelines, and Crews
+### 2. Agent Skills (the SKILL.md open standard)
+- A first-class **skill library** in the format the ecosystem converged on: YAML frontmatter + markdown instructions, stored verbatim, editable in-app
+- **Catalog adoption** - browse the live listing of the public [`anthropics/skills`](https://github.com/anthropics/skills) repo and adopt entries with one click; import any SKILL.md by URL (GitHub links normalized automatically)
+- **Native execution** - on the SSH backend, attached skills are materialized into an isolated per-run workspace's `.claude/skills/` and Claude Code loads them natively, progressive disclosure included: the model sees name + description, and invokes the `Skill` tool to read the full instructions only when relevant. The step timeline shows the invocation
+- On API backends (no skill runtime) skills are inlined into the prompt instead - same attach flow, both paths audited on the run
+
+### 3. MCP Tool Provisioning
+- Agents declare MCP servers; the DB-backed registry resolves them to launchable configs and **dispatch provisions them for real**: the config is written to the run host and passed via `--mcp-config` with `--strict-mcp-config`, so an agent gets exactly its declared servers - never whatever the host happens to have configured
+- Placeholder env values in the registry are documentation, not config: they are dropped at provision time and the run host's environment supplies real values - secrets stay out of the DB by design
+- Every run records what each agent was provisioned (`runs.provisioning`) and shows it as chips on the run page; meetings get the union of all participants' servers
+
+### 4. Agent Memory (episodic)
+- After each successful run, the agent's output is **distilled into durable memories** (strict extract-0-to-3-learnings contract) via the unified LLM layer - local Ollama models work, so this costs $0 with no API key; with no aux backend at all, a rule-based fallback still remembers runs that ended `attention`/`critical`
+- At the next dispatch the agent's memories (pinned first, then newest) are injected as a "What you remember from previous runs" section - backend-agnostic
+- Memory card on the agent profile: add manual entries, pin environment facts (pinned never expire), forget anything; every distilled memory links back to its source run
+- Retention built in: 30 non-pinned memories per agent, exact-duplicate dedup
+
+### 5. Orchestration: Modes, Pipelines, and Crews
 - Runs `claude -p "<prompt>"` on a remote host over SSH - or via the Anthropic API, or **any OpenAI-compatible endpoint incl. local Ollama** (see [Execution backends](#execution-backends))
 - Three composition modes: parallel (fan-out, aggregate), sequential (pipeline), meeting (structured debate)
 - **DAG Pipeline Builder** - compose agents into a directed graph with **conditional edges evaluated against the prior agent's output** (e.g. `output.includes('CRITICAL')`, sandboxed in a `vm` context). Pipelines compile to LangGraph at run time and stream per-node status live onto the graph
 - **Saved Crews** - named, reusable agent teams with a topology (fan / chain / round-table), one-click run or schedule, plus suggested crews derived from the related-agents graph
 - Cron scheduling with configurable concurrency; per-run Discord notifications
 
-### 3. Live Run Streaming
+### 6. Live Run Streaming - down to the tool call
 - Every run streams **per-agent lifecycle events over SSE**: watch agents start, work, and report in real time instead of waiting on a spinner
+- **Step-level timelines** - SSH dispatch runs `--output-format stream-json`, so every tool call (`Bash`, `Read`, `mcp__kubernetes__*`, `Skill`, ...) becomes a live timeline step with a wall-clock offset and input preview; the session init step even shows which MCP servers were provisioned. Timelines persist on the dispatch trace and replay on finished runs
 - Pipeline runs overlay live node status (pending / running / success / failed) directly on the DAG
 - Finished runs replay from history; mid-run viewers catch up from a buffered event stream
 
-### 4. Trust & Governance
+### 7. Trust & Governance
 - **Enforced safety tiers** - `read_only` disables the file-mutation tools (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`) at the CLI permission layer, not just in the prompt; the policy preamble remains as defense-in-depth (shell commands stay policy-governed - documented boundary)
 - **Human-in-the-loop approval gate** - `supervised`-tier runs hold in `pending_approval` and notify the operator; nothing dispatches until explicitly approved (or rejected) from the run page
 - **Turn limits** - a hard cap on agentic turns per dispatch (`--max-turns`), settable per schedule or as a platform default; runaway protection that is enforced, not advisory
@@ -63,36 +81,36 @@ The platform was built in five planned phases (visibility → configurability �
 - **Inbound webhooks** - `POST /api/webhooks/:token` fires a schedule from Prometheus alerts, git pushes, or n8n flows, with payload interpolation into the task prompt
 - **Durable job queue** - the runs table is the queue: crash recovery re-queues orphaned runs on boot, failed runs retry with exponential backoff, exhausted runs land in a dead-letter state with one-click re-queue
 
-### 5. Settings Hub
+### 8. Settings Hub
 - Live platform settings with clear precedence: **DB override → env seed → code default** - tune concurrency, timeouts, models, retention, safety preamble, and SLO targets at runtime with no redeploy
 - Model allowlist editable live (add a new Claude model without shipping code)
 
-### 6. RAG Engine
+### 9. RAG Engine
 - Vector store: Qdrant with Ollama embeddings (`nomic-embed-text`)
 - Pluggable document loaders: Markdown files, YAML, Terraform, URLs, transcripts
 - RAG Playground UI: load documents, query the index, inspect retrieved chunks
 - LangChain retrieval chain with Anthropic Claude for generation
 
-### 7. LangGraph Workflows
+### 10. LangGraph Workflows
 - Task router: Claude Haiku classifies each request (RAG query / workflow / SSH dispatch)
 - State machine graphs built with `@langchain/langgraph` - including **dynamic graphs compiled from user-built pipelines**
 - Built-in tools: `kubectl` runner, file reader, RAG search
 
-### 8. Observability, SLOs, and Cost
+### 11. Observability, SLOs, and Cost
 - Telemetry for **both backends**: API calls and SSH runs (token usage parsed from `claude`'s JSON output) - every run lands in the cost dashboard
 - **"Savings vs API" view** - subscription runs cost $0 but are metered at notional API prices, so the dashboard shows exactly what the SSH design saves
 - **Platform SLOs** - success rate, p95 run latency, and daily cost vs live-configurable targets, with green/warning/breach status and Discord alerting on transition into breach
 - Recharts dashboard: daily cost trends, model distribution, latency percentiles, recent traces
 
-### 9. Evaluation & Self-Improvement
+### 12. Evaluation & Self-Improvement
 - Eval suites with LLM-as-judge scoring; judge model and pass threshold are configurable per run
 - Runs on whatever the LLM layer resolves - Anthropic when a key is present, otherwise **any OpenAI-compatible endpoint including fully-local Ollama models** ($0; speed and judge quality scale with the model and hardware)
 - **Prompt A/B testing** - score the agent's current prompt (A) against a candidate (B) on the same suite, side by side
 - **Promote-to-active** - one click sets the winning prompt live (auto-snapshotting the old one), closing the measure → improve → ship loop
 
-### 10. Portability: Agent Packs & MCP Registry
+### 13. Portability: Agent Packs & MCP Registry
 - **Agent-pack YAML import/export** - versioned packs of agents, crews, schedules, and pipelines; cross-references travel by agent *name*, so a pack moves cleanly between deployments
-- **DB-backed MCP registry** - the integration catalog is editable at runtime (add/edit/delete servers, no redeploy), with per-server env-var validation badges and a remote connection test
+- **DB-backed MCP registry** - the integration catalog is editable at runtime (add/edit/delete servers, no redeploy), with per-server env-var validation badges and a remote connection test; registry entries are what [MCP provisioning](#3-mcp-tool-provisioning) resolves at dispatch
 
 ---
 
@@ -105,6 +123,11 @@ The UI is a flat dark dashboard with an amber primary and teal secondary accent 
 
 The 20-agent roster with search, category filters, and quick-task cards.
 
+### Skills - the SKILL.md library and catalog
+![Adopting a skill from the public catalog and attaching it to an agent](docs/screenshots/skills.gif)
+
+The skill library (2x speed): SKILL.md skills with source provenance and attach counts, a live listing of the public `anthropics/skills` catalog with one-click **Adopt**, and attaching a skill to an agent from its profile. Attached skills are materialized into the run workspace at dispatch and loaded natively by Claude Code - the step timeline below shows the `Skill` tool firing mid-run.
+
 ### Pipelines - conditional DAG orchestration
 ![A live pipeline run: conditional + verdict routing on a five-node DAG](docs/screenshots/demo.gif)
 
@@ -115,10 +138,14 @@ A live run captured at 3x speed, with both routing styles in play: Sentinel's sw
 
 Reusable teams with fan / chain / round-table topologies, one-click run or schedule, and suggested crews derived from the related-agents graph.
 
-### Live Run Streaming
+### Live Run Streaming - tool-call step timelines
+![Two agents streaming their tool calls live: Skill invocation, then provisioned MCP kubectl calls](docs/screenshots/steps-live.gif)
+
+A parallel run streaming **step-level events** over SSE (5x speed): each agent's session init shows exactly which MCP servers were provisioned (`--strict-mcp-config`), the `Skill` tool fires as Claude Code loads the attached `k8s-health-report` skill, and then a cascade of `mcp__kubernetes__kubectl_get` calls builds the report from live cluster data - every step wall-clock-stamped and persisted on the trace for post-run review.
+
 ![A sequential crew run streaming live](docs/screenshots/crew-run.gif)
 
-A four-agent sequential crew run streaming over SSE (6x speed): each agent's panel flips queued -> running -> success in real time as the chain progresses, with per-agent summaries landing as they finish - no polling, no spinner.
+The same SSE channel at the lifecycle level: a four-agent sequential crew run (6x speed), each agent's panel flipping queued -> running -> success as the chain progresses, with per-agent summaries landing as they finish - no polling, no spinner.
 
 ### Agency Catalog and Adoption
 ![Agency catalog adoption flow](docs/screenshots/agency.gif)
@@ -159,9 +186,11 @@ Browser (React 18 + Vite)
     |  REST / JSON + SSE (live run streams)
     v
 Express.js (port 3001)
-    |-- /api/agents        Agent CRUD, inference profiles, prompt versions
+    |-- /api/agents        Agent CRUD, inference profiles, prompt versions,
+    |                      attached skills, episodic memories
+    |-- /api/skills        Skill library (SKILL.md) + catalog adopt + import
     |-- /api/schedules     Cron scheduler
-    |-- /api/runs          Run history + SSE stream + retry
+    |-- /api/runs          Run history + SSE stream (lifecycle + tool steps) + retry
     |-- /api/pipelines     DAG builder, validation, runs + SSE node overlay
     |-- /api/crews         Saved agent teams (run / schedule)
     |-- /api/packs         YAML import/export of agents/crews/schedules/pipelines
@@ -175,9 +204,10 @@ Express.js (port 3001)
     |-- /api/eval          Evaluation suites + A/B testing
     |
     |-- SQLite (better-sqlite3, WAL)
-    |       agents, schedules, runs (durable queue), pipelines, crews,
-    |       traces, eval suites/runs, prompt_versions, api_keys,
-    |       platform_settings, mcp_servers
+    |       agents, skills + agent_skills, agent_memories,
+    |       schedules, runs (durable queue, provisioning audit),
+    |       pipelines, crews, traces (step timelines), eval suites/runs,
+    |       prompt_versions, api_keys, platform_settings, mcp_servers
     |
     |-- LangGraph
     |       Task router (Haiku) --> RAG chain | Workflow graph | SSH dispatch
@@ -187,10 +217,13 @@ Express.js (port 3001)
     |       Ollama embeddings (nomic-embed-text)
     |
     |-- SSH --> Remote Host                      (default backend)
-    |           claude -p "<safety tier + system prompt + task>"
-    |           (Claude Code CLI, parallel / sequential / meeting / pipeline)
+    |           per-run workspace: .claude/skills/ (attached SKILL.md files)
+    |                            + mcp-config.json (provisioned servers)
+    |           claude -p "<safety tier + persona + memories + task>"
+    |             --mcp-config ... --strict-mcp-config
+    |             --output-format stream-json   (live tool-step timeline)
     |
-    |-- Anthropic API                            (opt-in backend)
+    |-- Anthropic API / OpenAI-compatible        (opt-in backends)
 ```
 
 ---
@@ -266,6 +299,11 @@ docker compose exec ollama ollama pull nomic-embed-text
 | `RUN_TIMEOUT_MS` | `900000` | Per-dispatch timeout (15 min) |
 | `RUN_MAX_RETRIES` | `0` | Auto-retries (with backoff) for failed/timed-out runs; exhausted runs dead-letter |
 | `DEFAULT_MAX_TURNS` | `0` | Hard cap on agentic turns per dispatch (0 = unlimited); schedules can override |
+| `MCP_PROVISIONING` | `on` | Provision agents' declared MCP servers into SSH dispatch (`--mcp-config` + strict mode) |
+| `SKILL_PROVISIONING` | `on` | Materialize attached skills into the run workspace (SSH) / inline them (API backends) |
+| `MEMORY_INJECTION` | `on` | Inject each agent's episodic memories into its dispatch prompt |
+| `MEMORY_DISTILLATION` | `on` | Distill durable learnings from run output via the aux LLM backend (local models OK) |
+| `STEP_STREAMING` | `on` | SSH dispatch emits stream-json: live tool-call step timelines, persisted on traces |
 | `RETENTION_MAX_RUNS_PER_SCHEDULE` | `200` | Keep newest N runs per schedule (pruned nightly) |
 | `RETENTION_MAX_AGE_DAYS` | `90` | Drop finished runs older than this |
 | `DISCORD_WEBHOOK_URL` | _(optional)_ | Discord webhook for run + SLO-breach notifications |
@@ -328,16 +366,18 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `POST` | `/api/agents/:id/prompt-versions/:vid/restore` | Restore a prior prompt version |
 | `DELETE` | `/api/agents/:id` | Delete agent |
 | `POST` | `/api/agency/:id/adopt` | Copy a catalog agent into the runnable roster |
+| `GET/PUT` | `/api/agents/:id/skills` | List / replace the agent's attached skills |
+| `GET/POST` | `/api/agents/:id/memories` | List / add episodic memories |
+| `PATCH/DELETE` | `/api/agents/:id/memories/:mid` | Pin / edit / forget a memory |
 
-### Live Run Streaming
-![A sequential crew run streaming live](docs/screenshots/crew-run.gif)
-
-A four-agent sequential crew run streaming over SSE (6x speed): each agent's panel flips queued -> running -> success in real time as the chain progresses, with per-agent summaries landing as they finish - no polling, no spinner.
-
-### Agency Catalog and Adoption
-![Agency catalog adoption flow](docs/screenshots/agency.gif)
-
-A 140+ agent catalog synced from a public agent repository. One click adopts an entry into the runnable roster (provenance-tagged), after which it is schedulable, crewable, and usable as a pipeline node - the capture above adopts the DevOps Automator and lands on the roster, where adopted agents carry a `catalog` chip. The Incident Response Commander in the pipeline above came from here. Demo mode seeds a complete example: an adopted Code Reviewer composed with the built-in personas in a schedule and a crew.
+### Skills (SKILL.md)
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET/POST` | `/api/skills` | Skill library list (with attach counts) / create |
+| `GET/PUT/DELETE` | `/api/skills/:id` | Read / edit / delete (detaches everywhere) |
+| `GET` | `/api/skills/catalog` | Live listing of the public anthropics/skills repo (cached, offline fallback) |
+| `POST` | `/api/skills/import` | Import a SKILL.md by URL (GitHub blob links normalized) |
+| `POST` | `/api/skills/validate` | Validate raw SKILL.md frontmatter without saving |
 
 ### Schedules and Runs
 | Method | Path | Description |
@@ -348,8 +388,8 @@ A 140+ agent catalog synced from a public agent repository. One click adopts an 
 | `DELETE` | `/api/schedules/:id` | Delete schedule |
 | `POST` | `/api/schedules/:id/run` | Trigger schedule manually |
 | `GET` | `/api/runs` | List all runs with status |
-| `GET` | `/api/runs/:id` | Run detail with stdout |
-| `GET` | `/api/runs/:id/stream` | **SSE** - live per-agent events (replays finished runs) |
+| `GET` | `/api/runs/:id` | Run detail with stdout, provisioning audit, and step timelines |
+| `GET` | `/api/runs/:id/stream` | **SSE** - live per-agent lifecycle + tool-call step events (replays finished runs) |
 | `POST` | `/api/runs/:id/retry` | Re-queue a finished / dead-lettered run |
 | `POST` | `/api/runs/:id/approve` | Release a supervised-tier run held for approval |
 | `POST` | `/api/runs/:id/reject` | Decline a held run (terminal, never dispatches) |
@@ -447,7 +487,11 @@ agents-platform/
 │   ├── db.js                   # SQLite schema init, idempotent migrations
 │   ├── seed.js                 # 20 agent persona definitions
 │   ├── demo.js                 # Demo mode seed data
-│   ├── executor.js             # Backend-agnostic dispatch (SSH + API), prompts, telemetry
+│   ├── executor.js             # Backend-agnostic dispatch (SSH + API), prompts,
+│   │                           #   workspace/skill/MCP materialization, stream-json steps
+│   ├── dispatch-context.js     # Per-agent dispatch assembly: MCP + skills + memories
+│   ├── skills.js               # SKILL.md parse/serialize, library CRUD, catalog + import
+│   ├── memory.js               # Episodic memory: distillation, injection, retention
 │   ├── scheduler.js            # Durable run queue, cron, retries, retention, SLO monitor
 │   ├── run-stream.js           # SSE event registry w/ replay buffer (live run streaming)
 │   ├── settings.js             # Live settings: DB override > env seed > default
