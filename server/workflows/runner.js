@@ -4,7 +4,7 @@ import { buildAgentPrompt, buildMeetingPrompt, runClaude, resolveBackend, resolv
 import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
 import { resolveTier } from '../safety-prompt.js';
-import { agentDispatchContext, meetingDispatchContext } from '../dispatch-context.js';
+import { agentDispatchContext, meetingDispatchContext, hasProvisioning } from '../dispatch-context.js';
 import { IS_DEMO } from '../demo.js';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
@@ -29,7 +29,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   // and from later phases skills) — persisted on the run for the UI/audit trail.
   const provisioning = {};
   const recordProvision = (name, ctx) => {
-    if (ctx.provisioned.mcp.length) provisioning[name] = ctx.provisioned;
+    if (hasProvisioning(ctx)) provisioning[name] = ctx.provisioned;
   };
 
   const tier = resolveTier(schedule);
@@ -65,11 +65,11 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
         steps.push({ name: 'demo_stub', status: 'done' });
       }
     } else if (schedule.mode === 'meeting') {
-      const prompt = buildMeetingPrompt(agents, schedule.task_prompt, tier);
       const mctx = meetingDispatchContext(db, agents, { backend: runOpts.backend });
       recordProvision('Meeting', mctx);
+      const prompt = buildMeetingPrompt(agents, schedule.task_prompt, tier, mctx);
       emitRunEvent(runId, { type: 'agent_start', agent: 'Meeting' });
-      const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, mcpConfig: mctx.mcpConfig });
+      const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, mcpConfig: mctx.mcpConfig, skills: mctx.skills });
       if (timedOut) { status = 'timeout'; errorMessage = 'Run exceeded timeout'; }
       else if (ec !== 0) { status = 'failed'; errorMessage = `claude exited ${ec}: ${stderr.slice(0, 500)}`; }
       exitCode = ec ?? -1;
@@ -103,6 +103,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
         backend: runOpts.backend,
         runId,
         mcpConfig: ctx.mcpConfig,
+        skills: ctx.skills,
         routeDecision: route,
       });
 
@@ -121,8 +122,8 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
           emitRunEvent(runId, { type: 'agent_start', agent: agent.name });
           const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
           recordProvision(agent.name, ctx);
-          const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior, tier);
-          const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig });
+          const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior, tier, ctx);
+          const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills });
           if (timedOut) { status = 'timeout'; errorMessage = `Agent ${agent.name} timed out`; outputs[agent.name] = '[timed out]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'timeout' }); break; }
           if (ec !== 0) { status = 'failed'; errorMessage = `Agent ${agent.name} exited ${ec}`; outputs[agent.name] = '[failed]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'failed' }); break; }
           const parsed = parseClaudeJson(stdout);
@@ -139,8 +140,8 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
             emitRunEvent(runId, { type: 'agent_start', agent: agent.name });
             const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
             recordProvision(agent.name, ctx);
-            const prompt = buildAgentPrompt(agent, schedule.task_prompt, null, tier);
-            const result = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig });
+            const prompt = buildAgentPrompt(agent, schedule.task_prompt, null, tier, ctx);
+            const result = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills });
             const ok = !result.timedOut && result.exitCode === 0;
             emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: result.timedOut ? 'timeout' : ok ? 'success' : 'failed', summary: ok ? extractSummary(parseClaudeJson(result.stdout).result || '') : undefined });
             return { agent, ...result };

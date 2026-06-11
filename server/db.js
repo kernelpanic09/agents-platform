@@ -335,6 +335,29 @@ export function initDb() {
     );
   `);
 
+  // Agent Skills (SKILL.md open standard) — stored verbatim, attached to
+  // agents via a join table, materialized into the run workspace at dispatch.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS skills (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      source TEXT DEFAULT 'custom',
+      license TEXT DEFAULT '',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS agent_skills (
+      agent_id INTEGER NOT NULL,
+      skill_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (agent_id, skill_id)
+    );
+  `);
+
   // Seed if empty
   const count = db.prepare('SELECT COUNT(*) as count FROM agents').get();
   if (count.count === 0) {

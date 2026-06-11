@@ -191,12 +191,12 @@ export async function executePipelineRun({ db, pipeline, task, pipelineRunId }) 
       : null;
     const inf = resolveInference(agent, { model: node.model || defaultModel });
     const ctx = agentDispatchContext(db, agent, { backend });
-    const prompt = buildAgentPrompt(agent, task, upstream, 'read_only');
+    const prompt = buildAgentPrompt(agent, task, upstream, 'read_only', ctx);
 
     const { stdout, stderr, exitCode, timedOut } = await runClaude(prompt, {
       cwd: '/tmp', model: inf.model || node.model || defaultModel,
       temperature: inf.temperature, maxTokens: inf.maxTokens, backend, agentId: agent.id,
-      tier: 'read_only', maxTurns: getSetting('default_max_turns'), mcpConfig: ctx.mcpConfig,
+      tier: 'read_only', maxTurns: getSetting('default_max_turns'), mcpConfig: ctx.mcpConfig, skills: ctx.skills,
     });
 
     if (timedOut || exitCode !== 0) {

@@ -17,6 +17,7 @@ const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'));
 const PipelinesPage = lazy(() => import('./pages/PipelinesPage'));
 const PipelineDetailPage = lazy(() => import('./pages/PipelineDetailPage'));
 const CrewsPage = lazy(() => import('./pages/CrewsPage'));
+const SkillsPage = lazy(() => import('./pages/SkillsPage'));
 const ObservabilityPage = lazy(() => import('./pages/ObservabilityPage'));
 const EvalPage = lazy(() => import('./pages/EvalPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -82,6 +83,10 @@ export default function App() {
               <Route
                 path="/crews"
                 element={<Suspense fallback={SuspenseLoader}><CrewsPage /></Suspense>}
+              />
+              <Route
+                path="/skills"
+                element={<Suspense fallback={SuspenseLoader}><SkillsPage /></Suspense>}
               />
               <Route
                 path="/observability"

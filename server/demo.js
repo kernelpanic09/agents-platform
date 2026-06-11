@@ -101,5 +101,29 @@ export function seedDemoData(db) {
       );
   }
 
+  // Seed example skills (SKILL.md) so the Skills page and agent attach flow
+  // are demonstrable without network access.
+  const skillCount = db.prepare('SELECT COUNT(*) as count FROM skills').get();
+  if (skillCount.count === 0) {
+    console.log('[demo] Seeding example skills...');
+    const ins = db.prepare(`INSERT INTO skills (slug, name, description, content, source, license) VALUES (?, ?, ?, ?, 'custom', '')`);
+    const k8s = ins.run(
+      'k8s-health-report',
+      'K8s Health Report',
+      'Produce a structured cluster health report. Use whenever asked about cluster, node, or workload health.',
+      `---\nname: K8s Health Report\ndescription: Produce a structured cluster health report. Use whenever asked about cluster, node, or workload health.\n---\n\n# K8s Health Report\n\nStructure every health report with exactly these sections:\n\n1. **Nodes** - capacity, pressure conditions, anything NotReady\n2. **Workloads** - crashloops, restart counts, failed jobs\n3. **Storage** - volume health, capacity, degraded replicas\n\nEnd with a one-line triage call: healthy / degraded / critical.\n`,
+    );
+    const runbook = ins.run(
+      'runbook-writer',
+      'Runbook Writer',
+      'Write operational runbooks in a consistent, on-call-friendly format. Use when asked to document a procedure.',
+      `---\nname: Runbook Writer\ndescription: Write operational runbooks in a consistent, on-call-friendly format. Use when asked to document a procedure.\n---\n\n# Runbook Writer\n\nEvery runbook has five sections, in order:\n\n1. **Context** - what the system does, why this procedure exists\n2. **Preconditions** - access, tools, and state required before starting\n3. **Steps** - numbered, copy-pasteable commands with expected output\n4. **Verification** - how to prove the procedure worked\n5. **Rollback** - how to undo it safely\n\nWrite for a tired on-call engineer at 3am: no ambiguity, no cleverness.\n`,
+    );
+    const attach = db.prepare('INSERT OR IGNORE INTO agent_skills (agent_id, skill_id) VALUES (?, ?)');
+    attach.run(1, k8s.lastInsertRowid);      // Atlas
+    attach.run(2, k8s.lastInsertRowid);      // Sentinel
+    attach.run(6, runbook.lastInsertRowid);  // Forge
+  }
+
   console.log('[demo] Sample data seeded');
 }

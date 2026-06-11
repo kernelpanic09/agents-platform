@@ -142,6 +142,12 @@ export default function RunDetailPage() {
   const hasPerAgent = Object.keys(perAgent).length > 0;
   const meetingBlocks = run.mode === 'meeting' ? parseMeetingTranscript(run.transcript) : [];
 
+  // What each agent's declarations provisioned into its dispatch (MCP servers,
+  // skills) — recorded by the runner on the run row.
+  let provisioning = {};
+  try { provisioning = run.provisioning ? (typeof run.provisioning === 'string' ? JSON.parse(run.provisioning) : run.provisioning) : {}; } catch { provisioning = {}; }
+  const provisionedEntries = Object.entries(provisioning).filter(([, p]) => (p?.mcp?.length || p?.skills?.length));
+
   const agentByName = Object.fromEntries((run.agents || []).map(a => [a.name, a]));
 
   // Default tab picks the most relevant view for this run's shape
@@ -170,6 +176,21 @@ export default function RunDetailPage() {
               <span>Started: {run.started_at ? new Date(run.started_at).toLocaleString() : '—'}</span>
               <span>Finished: {run.finished_at ? new Date(run.finished_at).toLocaleString() : '—'}</span>
             </div>
+            {provisionedEntries.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+                {provisionedEntries.map(([name, p]) => (
+                  <div key={name} className="flex items-center flex-wrap gap-1.5 text-[11px]">
+                    <span className="text-zinc-500">{name} provisioned:</span>
+                    {(p.mcp || []).map(id => (
+                      <span key={`m-${id}`} className="font-mono px-1.5 py-0.5 rounded border bg-sky-500/10 text-sky-300 border-sky-500/20" title="MCP server (--mcp-config)">mcp:{id}</span>
+                    ))}
+                    {(p.skills || []).map(slug => (
+                      <span key={`s-${slug}`} className="font-mono px-1.5 py-0.5 rounded border bg-violet-500/10 text-violet-300 border-violet-500/20" title="Skill (SKILL.md, materialized into the run workspace)">skill:{slug}</span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {run.status === 'pending_approval' && (

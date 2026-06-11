@@ -35,13 +35,26 @@ const openaiBaseUrl = () => (process.env.OPENAI_BASE_URL || '').replace(/\/+$/, 
 const openaiApiKey = () => process.env.OPENAI_API_KEY || 'none'; // local servers accept any token
 const openaiDefaultModel = () => process.env.OPENAI_MODEL || 'qwen2.5:7b';
 
+/** Inline skills section for backends without a skill runtime (api/openai). */
+function inlineSkillsSection(inlineSkills) {
+  if (!inlineSkills || !inlineSkills.length) return '';
+  const parts = ['\n\n---\n\n# Skills\nYou have the following skills - procedural instructions to apply when relevant to the task:\n'];
+  for (const s of inlineSkills) {
+    parts.push(`\n## ${s.name}\n${s.description}\n\n${s.body}\n`);
+  }
+  return parts.join('');
+}
+
 /**
  * Build the prompt for a single agent in parallel/sequential mode.
+ * `ctx` is an agentDispatchContext: inlineSkills (api/openai backends) are
+ * appended here; on the subscription backend skills load natively instead.
  */
-export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null, tier = 'read_only') {
+export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null, tier = 'read_only', ctx = null) {
   const parts = [policyToPrompt(tier, getSetting('safety_preamble'))];
   parts.push(`# You are ${agent.name} — ${agent.title}\n`);
   parts.push(agent.system_prompt || agent.tagline || '');
+  parts.push(inlineSkillsSection(ctx?.inlineSkills));
   parts.push('\n\n---\n\n# Task\n');
   parts.push(taskPrompt);
   if (priorTranscript) {
@@ -58,9 +71,10 @@ export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null, tier
 /**
  * Build the coordinator prompt for meeting mode (single call, voices all agents).
  */
-export function buildMeetingPrompt(agents, taskPrompt, tier = 'read_only') {
+export function buildMeetingPrompt(agents, taskPrompt, tier = 'read_only', ctx = null) {
   const names = agents.map(a => a.name).join(', ');
   const parts = [policyToPrompt(tier, getSetting('safety_preamble'))];
+  parts.push(inlineSkillsSection(ctx?.inlineSkills));
   parts.push('# Roundtable Meeting\n\n');
   parts.push(`You are facilitating a roundtable between these personas. Voice each one in turn, staying faithful to their distinct system prompts. Run 3 full rounds with speaker order: ${names}.\n\n`);
   parts.push('## Personas\n\n');
@@ -175,23 +189,47 @@ function safeModel(m) {
  * code. When no MCP config is present the command is byte-identical to the
  * pre-provisioning shape (zero behavior change).
  */
-export function buildRemoteCommand({ b64Prompt, cwd = '/tmp', model, turnsFlag = '', tierFlags = '', mcpB64 = null, mcpPath = null }) {
+export function buildRemoteCommand({ b64Prompt, cwd = '/tmp', model, turnsFlag = '', tierFlags = '', mcpB64 = null, mcpPath = null, skills = null, workdir = null, addDir = null }) {
   const claudeCmd = `claude -p --output-format json --model ${model}${turnsFlag}${tierFlags}`;
   const tail = '--no-session-persistence --dangerously-skip-permissions';
   const pre = [
     'source ~/.nvm/nvm.sh >/dev/null 2>&1;',
     'nvm use 20 >/dev/null 2>&1;',
-    `cd ${cwd} &&`,
   ];
+  const addDirFlag = addDir ? ` --add-dir ${addDir}` : '';
+
+  // Workspace mode (agent has skills attached): build an isolated per-run
+  // directory whose .claude/skills/ holds each attached SKILL.md, and run
+  // claude from there - Claude Code discovers and loads the skills natively
+  // (progressive disclosure included). Parallel runs never collide because
+  // each gets its own workspace. When the schedule pins an app directory, it
+  // stays reachable via --add-dir.
+  if (skills && skills.length && workdir) {
+    const parts = [...pre, `trap 'rm -rf ${workdir}' EXIT;`];
+    parts.push(`mkdir -p ${skills.map(s => `${workdir}/.claude/skills/${s.slug}`).join(' ')} &&`);
+    for (const s of skills) {
+      parts.push(`echo '${s.b64}' | base64 -d > ${workdir}/.claude/skills/${s.slug}/SKILL.md &&`);
+    }
+    let mcpFlags = '';
+    if (mcpB64) {
+      parts.push(`echo '${mcpB64}' | base64 -d > ${workdir}/mcp-config.json &&`);
+      mcpFlags = ` --mcp-config ${workdir}/mcp-config.json --strict-mcp-config`;
+    }
+    parts.push(`cd ${workdir} &&`);
+    parts.push(`echo '${b64Prompt}' | base64 -d | ${claudeCmd}${mcpFlags}${addDirFlag} ${tail}`);
+    return parts.join(' ');
+  }
+
   if (mcpB64 && mcpPath) {
     return [
       ...pre,
+      `cd ${cwd} &&`,
       `trap 'rm -f ${mcpPath}' EXIT;`,
       `echo '${mcpB64}' | base64 -d > ${mcpPath} &&`,
       `echo '${b64Prompt}' | base64 -d | ${claudeCmd} --mcp-config ${mcpPath} --strict-mcp-config ${tail}`,
     ].join(' ');
   }
-  return [...pre, `echo '${b64Prompt}' | base64 -d | ${claudeCmd} ${tail}`].join(' ');
+  return [...pre, `cd ${cwd} &&`, `echo '${b64Prompt}' | base64 -d | ${claudeCmd} ${tail}`].join(' ');
 }
 
 /** Node-side temp path for the provisioned MCP config (no $(mktemp): see buildRemoteCommand). */
@@ -199,11 +237,42 @@ export function mcpTempPath() {
   return `/tmp/agents-mcp-${randomBytes(6).toString('hex')}.json`;
 }
 
+/** Node-side per-run workspace path for skill materialization. */
+export function workspacePath() {
+  return `/tmp/agents-ws-${randomBytes(6).toString('hex')}`;
+}
+
+// Slugs become remote paths; total payload is bounded so a pathological skill
+// set can't blow up the SSH command line (ARG_MAX).
+const SKILL_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const MAX_SKILLS_B64_TOTAL = 400 * 1024;
+
+/** Encode {slug, content} skills for remote materialization; invalid slugs and overflow are dropped (logged). */
+export function encodeSkillsForRemote(skills) {
+  if (!skills || !skills.length) return null;
+  const out = [];
+  let total = 0;
+  for (const s of skills) {
+    if (!SKILL_SLUG_RE.test(s.slug || '')) {
+      console.warn(`[skills] skipping skill with unsafe slug: ${JSON.stringify(s.slug)}`);
+      continue;
+    }
+    const b64 = Buffer.from(String(s.content || ''), 'utf-8').toString('base64');
+    if (total + b64.length > MAX_SKILLS_B64_TOTAL) {
+      console.warn(`[skills] skipping ${s.slug}: total skill payload would exceed ${MAX_SKILLS_B64_TOTAL} bytes`);
+      continue;
+    }
+    total += b64.length;
+    out.push({ slug: s.slug, b64 });
+  }
+  return out.length ? out : null;
+}
+
 /**
  * Run one `claude -p` invocation over SSH to the remote host.
  * Returns { stdout, stderr, exitCode, timedOut }.
  */
-export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms'), sshTarget = getSetting('ssh_target'), sshKeyPath = SSH_KEY_PATH, model = getSetting('default_model'), cwd = '/tmp', maxTurns = 0, tier = null, runId = null, agentId = null, mcpConfig = null } = {}) {
+export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms'), sshTarget = getSetting('ssh_target'), sshKeyPath = SSH_KEY_PATH, model = getSetting('default_model'), cwd = '/tmp', maxTurns = 0, tier = null, runId = null, agentId = null, mcpConfig = null, skills = null } = {}) {
   return new Promise((resolve) => {
     const started = Date.now();
     const b64 = Buffer.from(prompt, 'utf-8').toString('base64');
@@ -214,12 +283,20 @@ export function runClaudeRemote(prompt, { timeoutMs = getSetting('run_timeout_ms
     // permission layer (real guardrail), on top of the prompt preamble.
     const tierFlags = tierCliFlags(tier);
     const mcpB64 = mcpConfig ? Buffer.from(JSON.stringify(mcpConfig), 'utf-8').toString('base64') : null;
+    const remoteSkills = encodeSkillsForRemote(skills);
+    const workdir = remoteSkills ? workspacePath() : null;
     // Claude Code running from /tmp does not walk up into /home/ubuntu, so
     // the user-level CLAUDE.md is not loaded — no swap required. This lets
     // multiple parallel calls run without racing on a shared file.
     // When cwd is an app directory, claude DOES walk up looking for CLAUDE.md,
-    // which is exactly what we want (app-scoped context).
-    const remoteCmd = buildRemoteCommand({ b64Prompt: b64, cwd: safe, model: chosenModel, turnsFlag, tierFlags, mcpB64, mcpPath: mcpB64 ? mcpTempPath() : null });
+    // which is exactly what we want (app-scoped context). In workspace mode
+    // (skills attached) the run executes from the workspace instead and the
+    // app directory stays reachable via --add-dir.
+    const remoteCmd = buildRemoteCommand({
+      b64Prompt: b64, cwd: safe, model: chosenModel, turnsFlag, tierFlags,
+      mcpB64, mcpPath: mcpB64 && !workdir ? mcpTempPath() : null,
+      skills: remoteSkills, workdir, addDir: workdir && safe !== '/tmp' ? safe : null,
+    });
 
     const sshArgs = [
       '-i', sshKeyPath,

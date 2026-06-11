@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { getSetting } from '../settings.js';
+import { skillsForAgent, agentSkillIds, setAgentSkills } from '../skills.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROMPTS_DIR = resolve(__dirname, '../../prompts');
@@ -86,6 +87,25 @@ export default function agentsRouter(db) {
     }
     stmtSetModelConfig.run(Object.keys(cfg).length ? JSON.stringify(cfg) : null, id);
     res.json(parseAgent(stmtGetAgent.get(id)));
+  });
+
+  // GET /api/agents/:id/skills — skills attached to this agent (full rows for
+  // the profile UI), plus the raw id list for editing.
+  router.get('/:id/skills', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid agent ID' });
+    res.json({ skills: skillsForAgent(db, id), skill_ids: agentSkillIds(db, id) });
+  });
+
+  // PUT /api/agents/:id/skills — replace the attached skill set.
+  router.put('/:id/skills', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid agent ID' });
+    if (!stmtGetAgent.get(id)) return res.status(404).json({ error: 'Agent not found' });
+    const ids = req.body?.skill_ids;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'skill_ids must be an array' });
+    setAgentSkills(db, id, ids.map(Number).filter(Number.isFinite));
+    res.json({ skills: skillsForAgent(db, id), skill_ids: agentSkillIds(db, id) });
   });
 
   // GET /api/agents/:id/prompt-versions — system-prompt history (newest first).

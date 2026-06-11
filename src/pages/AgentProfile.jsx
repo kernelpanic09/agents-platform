@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Check, Wrench, Server, Sparkles, BookOpen, Terminal, Users, ExternalLink, FileText, Database, BarChart3, Globe, Download, Package, Clipboard, Cpu } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Wrench, Server, Sparkles, BookOpen, Terminal, Users, ExternalLink, FileText, Database, BarChart3, Globe, Download, Package, Clipboard, Cpu, Wand2 } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
 import { downloadMarkdown } from '../utils/download';
 import { copyToClipboard } from '../utils/clipboard';
@@ -141,6 +141,87 @@ function SystemPromptCard({ agent, onSaved }) {
               )}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttachedSkillsCard({ agentId, accent }) {
+  const [attached, setAttached] = useState([]);
+  const [attachedIds, setAttachedIds] = useState([]);
+  const [library, setLibrary] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    fetch(`/api/agents/${agentId}/skills`).then(r => r.json())
+      .then(d => { setAttached(d.skills || []); setAttachedIds(d.skill_ids || []); })
+      .catch(() => {});
+  }, [agentId]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (open) fetch('/api/skills').then(r => r.json()).then(setLibrary).catch(() => {});
+  }, [open]);
+
+  const toggleId = async (sid) => {
+    const next = attachedIds.includes(sid) ? attachedIds.filter(x => x !== sid) : [...attachedIds, sid];
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/skills`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill_ids: next }),
+      });
+      const d = await res.json();
+      setAttached(d.skills || []);
+      setAttachedIds(d.skill_ids || []);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="glass rounded-2xl p-6 mb-6">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Wand2 size={16} style={{ color: accent }} aria-hidden="true" />
+          <h2 className="font-semibold">Skills</h2>
+          <span className="text-[11px] text-zinc-500 font-mono">SKILL.md</span>
+        </div>
+        <button onClick={() => setOpen(o => !o)} className="text-xs px-2.5 py-1 rounded-md border border-white/10 text-zinc-300 hover:bg-white/5">
+          {open ? 'Done' : 'Manage'}
+        </button>
+      </div>
+      <p className="text-xs text-zinc-500 mb-3">Materialized into the run workspace at dispatch — loaded natively by Claude Code, inlined on API backends.</p>
+      {attached.length === 0 && !open && (
+        <div className="text-sm text-zinc-500">No skills attached. <Link to="/skills" className="underline hover:text-zinc-300">Browse the skill library</Link>.</div>
+      )}
+      {attached.length > 0 && !open && (
+        <div className="flex flex-wrap gap-2">
+          {attached.map(s => (
+            <span key={s.id} title={s.description} className="text-sm px-3 py-1 rounded-lg" style={{ backgroundColor: `${accent}12`, color: accent, border: `1px solid ${accent}25` }}>
+              {s.name}
+            </span>
+          ))}
+        </div>
+      )}
+      {open && (
+        <div className="space-y-1.5">
+          {library.length === 0 && <div className="text-sm text-zinc-500">Library is empty — <Link to="/skills" className="underline">create or adopt skills</Link> first.</div>}
+          {library.map(s => {
+            const on = attachedIds.includes(s.id);
+            return (
+              <button key={s.id} onClick={() => toggleId(s.id)} disabled={saving}
+                className={`w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-lg border transition-colors ${on ? 'border-violet-500/40 bg-violet-500/10' : 'border-white/5 bg-zinc-950/40 hover:bg-white/5'}`}>
+                <span className="min-w-0">
+                  <span className="text-sm block truncate">{s.name}</span>
+                  <span className="text-[11px] text-zinc-500 block truncate">{s.description}</span>
+                </span>
+                <span className={`text-[11px] shrink-0 ${on ? 'text-violet-300' : 'text-zinc-600'}`}>{on ? 'attached' : 'attach'}</span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -381,11 +462,14 @@ export default function AgentProfile() {
       <SystemPromptCard agent={agent} onSaved={setAgent} />
 
       {/* Skills / Tools / MCP — 3 columns */}
+      {/* Attached skills (SKILL.md) — materialized into the run workspace at dispatch */}
+      <AttachedSkillsCard agentId={agent.id} accent={agent.color} />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="glass rounded-2xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Sparkles size={16} style={{ color: agent.color }} aria-hidden="true" />
-            <h2 className="font-semibold">Skills</h2>
+            <h2 className="font-semibold">Expertise</h2>
           </div>
           <div className="flex flex-wrap gap-2">
             {agent.skills.map((skill, i) => (

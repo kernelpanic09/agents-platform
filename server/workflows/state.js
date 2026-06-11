@@ -10,6 +10,7 @@ export const AgentState = Annotation.Root({
   backend: Annotation({ reducer: (_, v) => v, default: () => 'subscription' }),
   runId: Annotation({ reducer: (_, v) => v, default: () => null }),
   mcpConfig: Annotation({ reducer: (_, v) => v, default: () => null }),
+  skills: Annotation({ reducer: (_, v) => v, default: () => null }),
   ragContext: Annotation({ reducer: (_, v) => v, default: () => [] }),
   routeDecision: Annotation({ reducer: (_, v) => v, default: () => 'rag' }),
   toolResults: Annotation({ reducer: (prev, v) => [...prev, ...v], default: () => [] }),
