@@ -1,4 +1,4 @@
-import { seedDemoRuns, seedDemoReport, seedDemoMemories } from './demo-content.js';
+import { seedDemoRuns, seedDemoReport, seedDemoMemories, seedDemoPipeline } from './demo-content.js';
 
 export const IS_DEMO = process.env.DEMO_MODE === 'true';
 
@@ -133,6 +133,7 @@ export function seedDemoData(db) {
   try { seedDemoRuns(db); } catch (e) { console.error('[demo] seedDemoRuns:', e.message); }
   try { seedDemoReport(db); } catch (e) { console.error('[demo] seedDemoReport:', e.message); }
   try { seedDemoMemories(db); } catch (e) { console.error('[demo] seedDemoMemories:', e.message); }
+  try { seedDemoPipeline(db); } catch (e) { console.error('[demo] seedDemoPipeline:', e.message); }
 
   console.log('[demo] Sample data seeded');
 }

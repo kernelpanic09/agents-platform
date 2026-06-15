@@ -229,6 +229,32 @@ export function seedDemoReport(db) {
   console.log(`[demo] seeded report "${group.slug}" with ${N} builds + metric trends`);
 }
 
+// ---- Pipeline (conditional DAG) ----
+
+export function seedDemoPipeline(db) {
+  if (db.prepare('SELECT COUNT(*) c FROM pipelines').get().c > 0) return;
+  const idOf = (name) => db.prepare('SELECT id FROM agents WHERE name = ?').get(name)?.id;
+  const atlas = idOf('Atlas'), mirror = idOf('Mirror'), relay = idOf('Relay');
+  if (!atlas || !mirror || !relay) return;
+  // Atlas audits the cluster; if it reports STATUS: critical the run escalates to
+  // Mirror (disaster recovery), and Relay always notifies. Conditional edge uses
+  // the upstream node's parsed verdict — the platform's routing primitive.
+  const graph = {
+    nodes: [
+      { id: 'n1', agent_id: atlas, label: 'Infrastructure Audit' },
+      { id: 'n2', agent_id: mirror, label: 'Failover Plan' },
+      { id: 'n3', agent_id: relay, label: 'Notify On-Call' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n2', condition: "verdict === 'critical'" },
+      { from: 'n1', to: 'n3', condition: '' },
+    ],
+  };
+  db.prepare(`INSERT INTO pipelines (name, description, graph) VALUES (?, ?, ?)`)
+    .run('Incident Escalation', 'Audit the cluster; escalate to disaster recovery only when a member reports critical, and always notify on-call.', JSON.stringify(graph));
+  console.log('[demo] seeded conditional DAG pipeline');
+}
+
 // ---- Agent memories ----
 
 export function seedDemoMemories(db) {
