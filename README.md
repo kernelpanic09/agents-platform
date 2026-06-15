@@ -127,11 +127,7 @@ The UI is a flat dashboard with a deep-teal accent and a CSS-variable neutral ra
 ### Agent Directory
 ![Agent Directory](docs/screenshots/home.png?v=6)
 
-The 20-agent roster with search, category filters, and quick-task cards - collapsible left-rail nav grouped Monitor / Build / Intelligence.
-
-![The same directory in light mode](docs/screenshots/home-light.png)
-
-One toggle flips the whole app between dark and light; the teal accent and every status color stay legible in both.
+The 20-agent roster with search, category filters, and quick-task cards - collapsible left-rail nav grouped Monitor / Build / Intelligence. A sidebar toggle flips the whole app between the dark default and a light theme.
 
 ### Combined Reports - AI-synthesized briefings with metric trends
 ![A Combined Report briefing fused from four schedules](docs/screenshots/report-detail.png)
