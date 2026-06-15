@@ -291,6 +291,67 @@ const avatars = {
     </svg>
   ),
 
+  // Helm - Ship's wheel (hypervisor / host control)
+  helm: ({ color }) => (
+    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer ring */}
+      <circle cx="40" cy="40" r="26" stroke={color} strokeWidth="1.5" opacity="0.35" />
+      {/* Inner hub */}
+      <circle cx="40" cy="40" r="7" fill={color} fillOpacity="0.15" stroke={color} strokeWidth="1.5" />
+      <circle cx="40" cy="40" r="3" fill={color} opacity="0.7" />
+      {/* 8 spokes */}
+      <line x1="40" y1="33" x2="40" y2="14" stroke={color} strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+      <line x1="40" y1="47" x2="40" y2="66" stroke={color} strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+      <line x1="33" y1="40" x2="14" y2="40" stroke={color} strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+      <line x1="47" y1="40" x2="66" y2="40" stroke={color} strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+      <line x1="35" y1="35" x2="22" y2="22" stroke={color} strokeWidth="1.2" strokeLinecap="round" opacity="0.4" />
+      <line x1="45" y1="45" x2="58" y2="58" stroke={color} strokeWidth="1.2" strokeLinecap="round" opacity="0.4" />
+      <line x1="45" y1="35" x2="58" y2="22" stroke={color} strokeWidth="1.2" strokeLinecap="round" opacity="0.4" />
+      <line x1="35" y1="45" x2="22" y2="58" stroke={color} strokeWidth="1.2" strokeLinecap="round" opacity="0.4" />
+      {/* Handle grips at rim */}
+      <circle cx="40" cy="14" r="3" fill={color} opacity="0.6" />
+      <circle cx="40" cy="66" r="3" fill={color} opacity="0.6" />
+      <circle cx="14" cy="40" r="3" fill={color} opacity="0.6" />
+      <circle cx="66" cy="40" r="3" fill={color} opacity="0.6" />
+    </svg>
+  ),
+
+  // Bedrock - Layered strata (ZFS pools / storage foundation)
+  bedrock: ({ color }) => (
+    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Top stratum — thin, faint */}
+      <rect x="14" y="18" width="52" height="9" rx="4" stroke={color} strokeWidth="1" fill={color} fillOpacity="0.06" opacity="0.5" />
+      {/* Middle stratum */}
+      <rect x="12" y="31" width="56" height="10" rx="4" stroke={color} strokeWidth="1.2" fill={color} fillOpacity="0.1" opacity="0.7" />
+      {/* Lower stratum */}
+      <rect x="10" y="45" width="60" height="11" rx="4" stroke={color} strokeWidth="1.4" fill={color} fillOpacity="0.14" opacity="0.85" />
+      {/* Bedrock base — emphasized */}
+      <rect x="8" y="60" width="64" height="8" rx="3" fill={color} fillOpacity="0.25" stroke={color} strokeWidth="1.5" />
+      {/* Texture lines in base */}
+      <line x1="18" y1="64" x2="30" y2="64" stroke={color} strokeWidth="1" opacity="0.4" strokeLinecap="round" />
+      <line x1="36" y1="64" x2="52" y2="64" stroke={color} strokeWidth="1" opacity="0.4" strokeLinecap="round" />
+      <line x1="58" y1="64" x2="66" y2="64" stroke={color} strokeWidth="1" opacity="0.35" strokeLinecap="round" />
+    </svg>
+  ),
+
+  // Picket - Fence/perimeter with broadcast arc (network edge guard)
+  picket: ({ color }) => (
+    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Horizontal rail */}
+      <line x1="8" y1="52" x2="72" y2="52" stroke={color} strokeWidth="1.5" opacity="0.5" strokeLinecap="round" />
+      <line x1="8" y1="44" x2="72" y2="44" stroke={color} strokeWidth="0.8" opacity="0.25" strokeLinecap="round" />
+      {/* Picket posts */}
+      <path d="M16 28L19 24L22 28V52H16Z" fill={color} fillOpacity="0.15" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M28 28L31 24L34 28V52H28Z" fill={color} fillOpacity="0.15" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M40 28L43 24L46 28V52H40Z" fill={color} fillOpacity="0.2" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M52 28L55 24L58 28V52H52Z" fill={color} fillOpacity="0.15" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      {/* Broadcast arc from center post */}
+      <path d="M43 18C47 16 52 16 56 18" stroke={color} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.5" />
+      <path d="M43 13C49 10 56 10 62 13" stroke={color} strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.3" />
+      <circle cx="43" cy="21" r="1.5" fill={color} opacity="0.7" />
+    </svg>
+  ),
+
   // Flux - Git branch merge diagram
   flux: ({ color }) => (
     <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">

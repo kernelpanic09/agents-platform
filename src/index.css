@@ -2,26 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+ * Theme tokens. Dark is the default (:root); light is opt-in via `html.light`.
+ * The neutral ramp (--n-*) is intentionally INVERTED between themes so the app's
+ * positional usage flips correctly: text uses the low steps (300-500) and panels
+ * /borders use the high steps (800-950). RGB triplets keep opacity modifiers working.
+ * ==========================================================================*/
 :root {
-  --agent-color: #E0A82E;
-  /* per-agent accent used as a solid border on hover — flat, no glow */
-  --agent-glow: rgba(224, 168, 46, 0.12);
+  /* Dark graphite (unchanged from the prior theme) */
+  --n-50: 246 247 248;
+  --n-100: 233 234 236;
+  --n-200: 211 213 217;
+  --n-300: 178 182 189;
+  --n-400: 138 143 152;
+  --n-500: 102 107 116;
+  --n-600: 73 78 87;
+  --n-700: 54 58 66;
+  --n-800: 43 47 55;
+  --n-900: 33 36 41;
+  --n-950: 26 29 33;
+  --bg: 26 29 33;          /* base page */
+  --bg-raised: 35 38 44;   /* panels / .glass */
+  --bg-overlay: 46 49 56;  /* overlays / hover */
+
+  --agent-color: #2E9E92;
+  --agent-glow: rgba(46, 158, 146, 0.12);
 }
+
+html.light {
+  /* Light: the ramp is inverted so the same step numbers keep their role
+   * (text-zinc-400 -> medium grey on white; bg-zinc-800 -> light panel). */
+  --n-50: 24 24 27;
+  --n-100: 39 39 42;
+  --n-200: 63 63 70;
+  --n-300: 82 82 91;
+  --n-400: 100 102 110;
+  --n-500: 128 130 138;
+  --n-600: 161 161 170;
+  --n-700: 212 212 216;
+  --n-800: 228 228 231;
+  --n-900: 241 241 243;
+  --n-950: 250 250 251;
+  --bg: 249 250 251;       /* base page (near-white) */
+  --bg-raised: 255 255 255;/* panels / .glass (white) */
+  --bg-overlay: 241 241 243;
+
+  --agent-glow: rgba(21, 117, 107, 0.12);
+}
+
+body { background-color: rgb(var(--bg)); }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(154, 147, 132, 0.3) transparent;
+  scrollbar-color: rgba(138, 143, 152, 0.35) transparent;
 }
 
-/* Keyboard focus: a consistent amber ring on every interactive element that
- * doesn't define its own focus-visible treatment. Never removed, only styled. */
+/* Keyboard focus: a consistent teal ring. Never removed, only styled. */
 :where(button, a, input, select, textarea, [role='checkbox']):focus-visible {
-  outline: 2px solid rgba(224, 168, 46, 0.55);
+  outline: 2px solid rgba(46, 158, 146, 0.6);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
-/* Respect users who opt out of motion: collapse entrances/transitions. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -31,34 +73,48 @@
   .animate-fade-in-up { opacity: 1; }
 }
 
-
-*::-webkit-scrollbar {
-  width: 6px;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+*::-webkit-scrollbar { width: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb {
-  background: rgba(154, 147, 132, 0.3);
+  background: rgba(138, 143, 152, 0.35);
   border-radius: 3px;
 }
 
-/* Flat panel (replaces glassmorphism — solid surface, hairline border, no blur) */
+/* Flat panel (solid surface + hairline border, theme-driven) */
 .glass {
-  background: #1B1915;
-  border: 1px solid #2A261F;
+  background: rgb(var(--bg-raised));
+  border: 1px solid rgb(var(--n-800));
 }
-
-.glass-hover {
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
+.glass-hover { transition: background 0.15s ease, border-color 0.15s ease; }
 .glass-hover:hover {
-  background: #232019;
-  border-color: #3A352C;
+  background: rgb(var(--bg-overlay));
+  border-color: rgb(var(--n-700));
 }
+
+/* ---- Light-mode overrides for hardcoded-dark utilities that can't auto-flip ---- */
+html.light .text-white { color: rgb(24 24 27); }
+/* ...but keep white text where it sits on a colored fill (buttons, badges) */
+html.light :is(
+  [class*="bg-teal"], [class*="bg-violet"], [class*="bg-purple"], [class*="bg-accent"],
+  [class*="bg-green"], [class*="bg-red"], [class*="bg-amber"], [class*="bg-yellow"],
+  [class*="bg-emerald"], [class*="bg-blue"], [class*="bg-orange"]
+).text-white { color: #fff; }
+
+/* white-opacity borders/backgrounds -> black-opacity on light */
+html.light .border-white\/5 { border-color: rgba(0, 0, 0, 0.07); }
+html.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.10); }
+html.light .border-white\/20 { border-color: rgba(0, 0, 0, 0.16); }
+html.light .bg-white\/5 { background-color: rgba(0, 0, 0, 0.04); }
+html.light .bg-white\/10 { background-color: rgba(0, 0, 0, 0.06); }
+html.light .divide-white\/5 > * + * { border-color: rgba(0, 0, 0, 0.07); }
+
+/* teal accent text needs to go darker to stay legible on light surfaces */
+html.light :is(.text-accent-300, .text-accent-400, .text-violet-400, .text-teal-400, .text-teal-300, .gradient-text) {
+  color: #15756B;
+}
+
+/* Headline accent — solid teal (dark theme); darkened on light via the rule above */
+.gradient-text { color: #2E9E92; }
 
 /* Agent card — flat lift + solid per-agent border on hover, no glow */
 .agent-card {
@@ -68,93 +124,52 @@
   contain: layout style;
   will-change: transform;
 }
-
 .agent-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   border-color: color-mix(in srgb, var(--agent-color) 50%, transparent);
 }
 
-/* Staggered entrance animation.
- * Note: opacity-only on purpose. Using `transform` here would make every page
- * using this class a containing block for `fixed` descendants, which traps
- * modals that expect to be viewport-positioned. */
 @keyframes fadeInUp {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-
 .animate-fade-in-up {
   animation: fadeInUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   opacity: 0;
 }
 
-/* Headline accent — solid amber (replaces the blue->purple->pink gradient) */
-.gradient-text {
-  color: #E0A82E;
-}
-
-/* Copy button animation */
-.copy-flash {
-  animation: flash 0.3s ease-out;
-}
-
+.copy-flash { animation: flash 0.3s ease-out; }
 @keyframes flash {
   0% { background: rgba(255,255,255,0.15); }
   100% { background: transparent; }
 }
 
-/* Skill badge pulse */
-.skill-badge {
-  transition: all 0.2s ease;
-}
+.skill-badge { transition: all 0.2s ease; }
+.skill-badge:hover { transform: scale(1.05); }
 
-.skill-badge:hover {
-  transform: scale(1.05);
-}
-
-/* Avatar ring animation */
 @keyframes ringPulse {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.6; }
 }
+.avatar-ring { animation: ringPulse 3s ease-in-out infinite; }
 
-.avatar-ring {
-  animation: ringPulse 3s ease-in-out infinite;
-}
-
-/* Compose bar — sticky bottom with slide-up entrance */
 @keyframes slideUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
+.compose-bar { animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
-.compose-bar {
-  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-/* Selected card state — flat solid ring in the agent color, no glow */
 .agent-card-selected {
   box-shadow: 0 0 0 2px var(--agent-color), 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
-/* Checkbox scale-in animation */
 @keyframes checkboxScale {
   from { transform: scale(0); }
   to { transform: scale(1); }
 }
+.checkbox-scale { animation: checkboxScale 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
-.checkbox-scale {
-  animation: checkboxScale 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-/* Quick task card hover — flat lift + solid border, no glow */
 .quick-task-card:hover {
   border-color: color-mix(in srgb, var(--agent-color) 45%, transparent);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);

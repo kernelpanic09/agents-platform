@@ -2,20 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Apply the saved theme before paint to avoid a flash. Default = dark.
+      try { if (localStorage.getItem('agents-theme') === 'light') document.documentElement.classList.add('light'); } catch (e) {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#131210" />
+    <meta name="theme-color" content="#1A1D21" />
     <meta name="description" content="Agents - AI agent personas for homelab operations" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23E0A82E'/><text y='70' x='50' text-anchor='middle' font-size='60' fill='%23131210'>A</text></svg>" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232E9E92'/><text y='70' x='50' text-anchor='middle' font-size='60' fill='%23FFFFFF'>A</text></svg>" />
     <title>Agents</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
-      body {
-        background-color: #131210;
-      }
+      body { background-color: #1A1D21; }
+      html.light body { background-color: #F9FAFB; }
     </style>
   </head>
   <body>

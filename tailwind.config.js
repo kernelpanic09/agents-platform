@@ -1,55 +1,42 @@
 /** @type {import('tailwindcss').Config} */
 
-// Flat-dark + amber theme. The accent (formerly violet) and the neutral scale
-// (formerly cool zinc) are remapped here so the whole app recolors without
-// touching component classes. No glass, no glow, no blue->purple->pink gradient.
+// Flat theme with a dark-teal accent and a CSS-variable-driven neutral scale, so the
+// app supports BOTH a dark (default) and a light theme (toggled via `html.light`).
+// The neutral ramp + surfaces resolve to CSS vars (defined per-theme in index.css);
+// the teal accent is fixed (legible on both themes). No glass, no glow, no gradients.
 
-// Amber/gold accent ramp, tuned for contrast: 400 is a bright gold for text /
-// borders / active states on dark; 600/700 are deep enough for white-on-accent
-// buttons to stay legible.
-const amber = {
-  50: '#FBF4E4',
-  100: '#F6E7C6',
-  200: '#EDCF8E',
-  300: '#E6BB5E',
-  400: '#E0A82E',
-  500: '#CE8F22',
-  600: '#AE7016',
-  700: '#8A5711',
-  800: '#5F3C0D',
-  900: '#3E280B',
-  950: '#241705',
-};
+// rgb(var) form keeps Tailwind opacity modifiers working (e.g. bg-zinc-900/50).
+const v = (name) => `rgb(var(${name}) / <alpha-value>)`;
 
-// Muted teal — the complementary secondary accent (links, secondary actions,
-// "running" state, a data-viz series). Desaturated + flat, not neon cyan.
+// Deep teal accent — fixed across themes. 300/400 read as the brand teal; 600/700 are
+// dark enough for white-on-accent buttons (>= 4.5:1) on either background.
 const teal = {
-  50: '#EAF4F2',
-  100: '#CFE6E2',
-  200: '#A6D2CB',
-  300: '#6FBDB3',
-  400: '#3AAEA3',
-  500: '#2FA39A',
-  600: '#23867D',
-  700: '#1B6A62',
-  800: '#16524C',
-  900: '#123E3A',
-  950: '#0B2624',
+  50: '#E9F4F2',
+  100: '#C8E6E1',
+  200: '#9AD2CA',
+  300: '#5EB6AB',
+  400: '#2E9E92',
+  500: '#1F8B80',
+  600: '#15756B',
+  700: '#0F5B54',
+  800: '#0C4640',
+  900: '#0A332E',
+  950: '#06201D',
 };
 
-// Warm neutral ramp (replaces cool zinc) — neutrals tinted toward the brand hue.
-const warm = {
-  50: '#F7F5F0',
-  100: '#EFEBE2',
-  200: '#E0DACE',
-  300: '#C2BAA9',
-  400: '#9A9384',
-  500: '#79736A',
-  600: '#574F45',
-  700: '#3A352C',
-  800: '#2A261F',
-  900: '#1B1915',
-  950: '#131210',
+// Neutral ramp — values live in CSS vars (--n-*), swapped per theme in index.css.
+const neutral = {
+  50: v('--n-50'),
+  100: v('--n-100'),
+  200: v('--n-200'),
+  300: v('--n-300'),
+  400: v('--n-400'),
+  500: v('--n-500'),
+  600: v('--n-600'),
+  700: v('--n-700'),
+  800: v('--n-800'),
+  900: v('--n-900'),
+  950: v('--n-950'),
 };
 
 export default {
@@ -60,21 +47,20 @@ export default {
         sans: ['Hanken Grotesk', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
-        // Remap so existing `violet-*` / `purple-*` / `zinc-*` utilities pick up the theme.
-        violet: amber,
-        purple: amber,
-        zinc: warm,
+        // Remap so existing violet-*/purple-*/zinc-*/teal-* utilities pick up the theme.
+        violet: teal,
+        purple: teal,
         teal: teal,
-        accent: amber,
+        zinc: neutral,
+        accent: teal,
         secondary: teal,
         surface: {
-          DEFAULT: '#131210',
-          raised: '#1B1915',
-          overlay: '#2A261F',
+          DEFAULT: v('--bg'),
+          raised: v('--bg-raised'),
+          overlay: v('--bg-overlay'),
         },
       },
       boxShadow: {
-        // Flat: one restrained card shadow, no colored glow.
         card: '0 1px 2px rgba(0,0,0,0.45)',
       },
     },
