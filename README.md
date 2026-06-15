@@ -40,7 +40,7 @@ The platform was built in five planned phases (visibility → configurability �
 - Full CRUD via REST API and in-app forms; per-agent accent color and SVG avatar (20 unique illustrations)
 - **Per-agent inference profiles** - model, temperature, and max-tokens overrides applied at execution time
 - **Prompt version history** - every system-prompt edit auto-snapshots the prior version; view, diff, and restore from the agent profile
-- **Adopt from catalog** - one-click adoption from a 140+ agent public catalog into the runnable roster; adopted agents carry provenance (`source_pack`) and become schedulable, crewable, and pipeline-ready alongside the built-ins
+- **Adopt from catalog** - one-click adoption from a 180+ agent public catalog into the runnable roster; adopted agents carry provenance (`source_pack`) and become schedulable, crewable, and pipeline-ready alongside the built-ins
 
 ### 2. Agent Skills (the SKILL.md open standard)
 - A first-class **skill library** in the format the ecosystem converged on: YAML frontmatter + markdown instructions, stored verbatim, editable in-app
@@ -100,7 +100,7 @@ The platform was built in five planned phases (visibility → configurability �
 ### 11. LangGraph Workflows
 - Task router: Claude Haiku classifies each request (RAG query / workflow / SSH dispatch)
 - State machine graphs built with `@langchain/langgraph` - including **dynamic graphs compiled from user-built pipelines**
-- Built-in tools: `kubectl` runner, file reader, RAG search
+- Nodes: a RAG retrieval + generation path and an SSH-dispatch path (the agent's `kubectl`/filesystem/MCP tooling runs on the run host via Claude Code, not in-process)
 
 ### 12. Observability, SLOs, and Cost
 - Telemetry for **both backends**: API calls and SSH runs (token usage parsed from `claude`'s JSON output) - every run lands in the cost dashboard
@@ -163,6 +163,10 @@ A parallel run streaming **step-level events** over SSE (2x speed): the agents f
 ![A sequential crew run streaming live](docs/screenshots/crew-run.gif?v=2)
 
 The same SSE channel for a saved crew: a three-agent sequential crew run (2x speed), each agent's panel flipping queued -> running -> success as the chain progresses and its tool-call timeline streams in, with per-agent summaries landing as they finish - no polling, no spinner.
+
+![A finished run with per-agent output, verdicts, provisioning chips, and persisted step timelines](docs/screenshots/run-detail.png)
+
+A finished run replays from history: per-agent output and verdicts, the MCP servers and skills each agent was provisioned (the chips under the header), and a collapsible per-agent step timeline reconstructed from the trace.
 
 ### Agency Catalog and Adoption
 ![Agency catalog adoption flow](docs/screenshots/agency.gif?v=2)
@@ -536,7 +540,7 @@ agents-platform/
 │   │   ├── state.js            # LangGraph state schema
 │   │   ├── tools.js            # LangChain tools (kubectl, file read, RAG)
 │   │   ├── router.js           # Task classifier (Haiku)
-│   │   ├── graphs.js           # Static LangGraph graph definitions
+│   │   ├── graphs.js           # Static LangGraph graph definitions (RAG + SSH-dispatch nodes)
 │   │   ├── pipeline.js         # Dynamic DAG -> LangGraph compiler, sandboxed conditions
 │   │   └── runner.js           # Graph execution engine (all modes)
 │   ├── eval/
@@ -566,14 +570,14 @@ agents-platform/
 │                               # Reports, ReportDetail (briefing + trends), RagPlayground, Workflows,
 │                               # Observability (SLOs), Eval (A/B), Settings (hub + keys + MCP + packs)
 │
-└── test/                       # 32 unit tests (node:test):
+└── test/                       # 16 files, 120+ cases (node:test):
     ├── pipeline.test.js        #   DAG validation, sandboxed conditions, LangGraph routing
-    ├── packs.test.js           #   YAML pack round-trip, agency adoption
-    ├── mcp.test.js             #   registry seed/CRUD/env checks
-    ├── slo.test.js             #   SLO status bands + roll-up
-    ├── api-keys.test.js        #   scopes, hashing, middleware
-    ├── safety-tier.test.js     #   tier resolution + policy prompts
-    ├── execution-backend.test.js
+    ├── reports.test.js / metrics.test.js   # synthesis engine + metric-series normalization
+    ├── skills.test.js          #   SKILL.md parse, materialization, attach
+    ├── memory.test.js          #   episodic distillation, injection, retention
+    ├── dispatch-context.test.js / stream-json.test.js  # MCP provisioning + step parsing
+    ├── packs.test.js / mcp.test.js / governance.test.js / safety-tier.test.js
+    ├── api-keys.test.js / slo.test.js / execution-backend.test.js / llm.test.js
     ├── run-stream.test.js
     └── rag-smoke.js            # RAG integration smoke test
 ```
@@ -596,7 +600,7 @@ npm run dev
 npm run build
 npm start
 
-# Run the unit test suite (32 tests, no API key or SSH needed)
+# Run the unit test suite (120+ tests, no API key or SSH needed)
 npm test
 ```
 

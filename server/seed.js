@@ -618,9 +618,9 @@ deploy.sh <app-name> "commit message"
 ## NFS Storage (Media)
 | Share | NFS Path | Mount |
 |-------|----------|-------|
-| TV Shows | 10.0.1.240:/kb/media2/TV-Archive1 | /tv |
-| Movies | 10.0.1.240:/kb/media2/MoviesArchive1 | /movies |
-| Downloads | 10.0.1.240:/kb/media2/Youtube | /downloads |
+| TV Shows | 10.0.1.240:/exports/media/tv | /tv |
+| Movies | 10.0.1.240:/exports/media/movies | /movies |
+| Downloads | 10.0.1.240:/exports/media/downloads | /downloads |
 
 ## Media Pipeline
 \`\`\`

@@ -219,10 +219,11 @@ export function seedDemoReport(db) {
   const insBuild = db.prepare(`INSERT INTO report_builds (report_id, status, content, source_runs, duration_ms, created_at)
     VALUES (?, 'success', ?, '[]', ?, ?)`);
   const N = 12;
+  const rand = rng(7); // seeded so build durations are stable across boots
   for (let i = 0; i < N; i++) {
     const k = i / (N - 1); // 0 -> 1
     const when = new Date(Date.now() - (N - 1 - i) * 2 * 86400000).toISOString().replace('T', ' ').slice(0, 19);
-    insBuild.run(gid, JSON.stringify(buildContent(k)), 9000 + Math.floor(Math.random() * 6000), when);
+    insBuild.run(gid, JSON.stringify(buildContent(k)), 9000 + Math.floor(rand() * 6000), when);
   }
   // derive metric points from the builds so the Trends tab renders
   try { backfill(db, group); } catch (e) { console.error('[demo] report backfill:', e.message); }

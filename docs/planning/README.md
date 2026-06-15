@@ -15,10 +15,11 @@ Product planning for agents-platform, produced by a 10-agent design meeting and 
 
 The roadmap is the source of truth for sequencing. Recent progress:
 
-- ✅ **Opt-in Anthropic API execution backend** (P3 / T9) - shipped & live (v1.0.28)
-- ✅ **README disclaimer** on the SSH/subscription cost design
-- ✅ **UI redesign** - flat dark + amber + teal, status badges (partially delivers T4's "Appearance" pillar)
-- ⏳ **P1 - Make It Visible & Honest** (Live Run Theater + SSH telemetry) - in progress
+All five planned phases (P1-P5) have since shipped - Live Run Theater + SSH telemetry,
+the settings hub, trust/governance, the self-improvement loop, and composability
+(pipelines/crews). Later capability work (skills, MCP provisioning, episodic memory,
+step-level traces, Combined Reports) and the teal light/dark redesign followed. The
+phase docs below are kept as the original planning record.
 
 > **Cost note:** the default subscription backend has static/zero marginal cost, so the
 > observability work is about *usage visibility* and a *"savings vs API"* story, not spend
