@@ -247,8 +247,10 @@ export default function schedulesRouter(db, scheduler) {
     if (process.env.ENABLE_SCHEDULER !== 'true') {
       return res.status(503).json({ error: 'Scheduler disabled (set ENABLE_SCHEDULER=true)' });
     }
-    const runId = scheduler.fireRun(id);
-    if (!runId) return res.status(400).json({ error: 'Could not enqueue run (paused/completed/no-agents?)' });
+    // Manual "Run now" is an explicit operator action — fire even when the cron
+    // schedule is paused/completed (pause only governs automatic firing).
+    const runId = scheduler.fireRun(id, { force: true });
+    if (!runId) return res.status(400).json({ error: 'Could not enqueue run (no valid agents?)' });
     res.status(202).json({ success: true, run_id: runId });
   });
 

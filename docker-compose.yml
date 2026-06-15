@@ -11,7 +11,10 @@ services:
       - OLLAMA_URL=http://ollama:11434
       - EMBED_MODEL=nomic-embed-text
       - DEMO_MODE=true
-      - ALLOWED_INGEST_DIRS=/home/ubuntu/apps,/home/ubuntu/terraform,/home/ubuntu/kube
+      # Manual "Run now" is enabled so the demo can stream a (fabricated) live run.
+      # All seeded schedules are paused, so nothing fires on its own.
+      - ENABLE_SCHEDULER=true
+      - ALLOWED_INGEST_DIRS=/data,/workspace
     volumes:
       - app-data:/data
     depends_on:

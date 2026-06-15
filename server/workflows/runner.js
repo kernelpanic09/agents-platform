@@ -8,11 +8,16 @@ import { agentDispatchContext, meetingDispatchContext, hasProvisioning } from '.
 import { distillRunMemories } from '../memory.js';
 import { onRunFinished as reportsOnRunFinished } from '../reports.js';
 import { IS_DEMO } from '../demo.js';
+import { simulateRun } from '../demo-sim.js';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:3001';
 
 export async function executeRunViaGraph({ db, runId, schedule, agents }) {
+  // Demo mode: no SSH host / API key. Fabricate an animated run instead so the
+  // Live Run Theater streams real-looking step events with zero external deps.
+  if (IS_DEMO) return simulateRun({ db, runId, schedule, agents });
+
   const startedAt = new Date().toISOString();
   const started = Date.now();
 
@@ -45,28 +50,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   };
 
   try {
-    if (IS_DEMO && schedule.mode !== 'meeting') {
-      // In demo mode, single-agent runs route to RAG (no SSH); multi-agent stubs out.
-      if (agents.length === 1) {
-        const graph = buildRagGraph();
-        const result = await graph.invoke({
-          task: schedule.task_prompt,
-          agentId: agents[0].id,
-          agentName: agents[0].name,
-          mode: schedule.mode,
-          model: runOpts.model,
-          cwd: runOpts.cwd,
-          routeDecision: 'rag',
-        });
-        summary = result.summary || 'Demo mode: RAG response';
-        transcript = result.result || '';
-        steps.push({ name: 'demo_rag', status: 'done' });
-      } else {
-        summary = 'Demo mode: multi-agent SSH dispatch disabled.';
-        transcript = summary;
-        steps.push({ name: 'demo_stub', status: 'done' });
-      }
-    } else if (schedule.mode === 'meeting') {
+    if (schedule.mode === 'meeting') {
       const mctx = meetingDispatchContext(db, agents, { backend: runOpts.backend });
       recordProvision('Meeting', mctx);
       const prompt = buildMeetingPrompt(agents, schedule.task_prompt, tier, mctx);

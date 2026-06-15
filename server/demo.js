@@ -1,3 +1,5 @@
+import { seedDemoRuns, seedDemoReport, seedDemoMemories } from './demo-content.js';
+
 export const IS_DEMO = process.env.DEMO_MODE === 'true';
 
 export function seedDemoData(db) {
@@ -124,6 +126,13 @@ export function seedDemoData(db) {
     attach.run(2, k8s.lastInsertRowid);      // Sentinel
     attach.run(6, runbook.lastInsertRowid);  // Forge
   }
+
+  // Rich, fabricated operating history so a fresh clone looks lived-in:
+  // completed runs with tool-call timelines, a Combined Report with metric
+  // trends, and agent memories. Each is idempotent (no-ops if data exists).
+  try { seedDemoRuns(db); } catch (e) { console.error('[demo] seedDemoRuns:', e.message); }
+  try { seedDemoReport(db); } catch (e) { console.error('[demo] seedDemoReport:', e.message); }
+  try { seedDemoMemories(db); } catch (e) { console.error('[demo] seedDemoMemories:', e.message); }
 
   console.log('[demo] Sample data seeded');
 }
