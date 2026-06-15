@@ -12,9 +12,9 @@ export const seedAgents = [
     tools: JSON.stringify(['kubectl', 'terraform', 'helm', 'k3sup', 'metallb', 'pihole', 'pfSense', 'ssh']),
     mcp_servers: JSON.stringify(['kubernetes', 'context7']),
     knowledge_sources: JSON.stringify([
-      { type: 'file', label: 'System Info', path: '~/server-info/system_info.md' },
-      { type: 'file', label: 'Migration Plan', path: '~/server-info/migration-plan.md' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'file', label: 'System Info', path: '~/infra/system_info.md' },
+      { type: 'file', label: 'Migration Plan', path: '~/infra/migration-plan.md' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
       { type: 'bookstack', label: 'Infrastructure Docs', url: 'http://10.0.1.170' },
       { type: 'grafana', label: 'Cluster Dashboard', url: 'http://10.0.1.163:3000' },
       { type: 'url', label: 'Prometheus', url: 'http://10.0.1.160:9090' },
@@ -65,10 +65,10 @@ export const seedAgents = [
 
 ## Guidelines
 - Always check current cluster state before making changes
-- Use GitOps workflow — changes through ~/kube/manifests/ → git push → ArgoCD sync
+- Use GitOps workflow — changes through ~/manifests/ → git push → ArgoCD sync
 - Never kubectl apply directly for application deployments (use deploy.sh)
 - Consider HA implications for all architectural decisions
-- Document network topology changes in ~/server-info/system_info.md
+- Document network topology changes in ~/infra/system_info.md
 - Delegate to Sentinel for monitoring, Bastion for storage, Vault for security`
   },
 
@@ -89,7 +89,7 @@ export const seedAgents = [
       { type: 'prometheus', label: 'Prometheus', url: 'http://10.0.1.160:9090' },
       { type: 'url', label: 'Uptime Kuma', url: 'http://10.0.1.167:3001' },
       { type: 'url', label: 'Tautulli', url: 'http://10.0.1.168:8181' },
-      { type: 'file', label: 'System Info', path: '~/server-info/system_info.md' },
+      { type: 'file', label: 'System Info', path: '~/infra/system_info.md' },
       { type: 'directory', label: 'Grafana Dashboard JSON', path: '~/apps/grafana-dashboards/' },
     ]),
     example_tasks: JSON.stringify([
@@ -162,7 +162,7 @@ export const seedAgents = [
     knowledge_sources: JSON.stringify([
       { type: 'url', label: 'Vaultwarden', url: 'http://10.0.1.161' },
       { type: 'url', label: 'WireGuard UI', url: 'http://10.0.1.55:51821' },
-      { type: 'file', label: 'System Info', path: '~/server-info/system_info.md' },
+      { type: 'file', label: 'System Info', path: '~/infra/system_info.md' },
       { type: 'bookstack', label: 'Security Docs', url: 'http://10.0.1.170' },
       { type: 'directory', label: 'Terraform Configs', path: '~/terraform/' },
     ]),
@@ -237,8 +237,8 @@ export const seedAgents = [
       { type: 'url', label: 'Hue App', url: 'http://10.0.1.165' },
       { type: 'directory', label: 'Hue App Source', path: '~/apps/hue-app/' },
       { type: 'directory', label: 'Control App Source', path: '~/apps/control/' },
-      { type: 'directory', label: 'n8n Workflows', path: '~/kube/manifests/n8n/' },
-      { type: 'file', label: 'n8n Operations', path: '~/server-info/n8n-operations.md' },
+      { type: 'directory', label: 'n8n Workflows', path: '~/manifests/n8n/' },
+      { type: 'file', label: 'n8n Operations', path: '~/infra/n8n-operations.md' },
     ]),
     example_tasks: JSON.stringify([
       { title: 'Create Hue Scene', description: 'Design a new Philips Hue lighting scene. Set colors, brightness, and transition times for each light group. Save to the Hue Bridge via API.' },
@@ -269,7 +269,7 @@ export const seedAgents = [
 - Scheduled tasks (cron-based)
 - Multi-step workflows with error handling
 - Integrations: Discord, email, HTTP, Hue API
-- Operations docs: ~/server-info/n8n-operations.md
+- Operations docs: ~/infra/n8n-operations.md
 
 ## Guidelines
 - Test automations in isolation before connecting to live devices
@@ -374,7 +374,7 @@ export const seedAgents = [
     knowledge_sources: JSON.stringify([
       { type: 'directory', label: 'All App Sources', path: '~/apps/' },
       { type: 'file', label: 'deploy.sh Script', path: '~/bin/deploy.sh' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
       { type: 'url', label: 'Container Registry', url: 'http://10.0.1.20:5000/v2/_catalog' },
       { type: 'url', label: 'ArgoCD', url: 'https://10.0.1.164' },
       { type: 'file', label: 'Churn App (Reference)', path: '~/apps/churn/CLAUDE.md' },
@@ -424,7 +424,7 @@ deploy.sh <app-name> "commit message"
 |---------|----------|
 | Registry | 10.0.1.20:5000 |
 | ArgoCD | 10.0.1.164 |
-| Manifests | ~/kube/manifests/<app>/ |
+| Manifests | ~/manifests/<app>/ |
 | App Source | ~/apps/<app>/ |
 
 ## Server Pattern (Express)
@@ -460,7 +460,7 @@ deploy.sh <app-name> "commit message"
       { type: 'directory', label: 'Real Estate Scraper', path: '~/apps/real-estate-scraper/' },
       { type: 'url', label: 'n8n Workflows', url: 'http://10.0.1.173:5678' },
       { type: 'url', label: 'Grafana (Visualization)', url: 'http://10.0.1.163:3000' },
-      { type: 'file', label: 'n8n Operations', path: '~/server-info/n8n-operations.md' },
+      { type: 'file', label: 'n8n Operations', path: '~/infra/n8n-operations.md' },
     ]),
     example_tasks: JSON.stringify([
       { title: 'Build Scraping Pipeline', description: 'Create a data scraping pipeline with Puppeteer/Cheerio. Respect robots.txt and rate limits. Store raw data in SQLite with timestamps. Build idempotent pipeline (safe to re-run).' },
@@ -518,8 +518,8 @@ deploy.sh <app-name> "commit message"
     mcp_servers: JSON.stringify(['context7', 'kubernetes', 'brave-search', 'memory', 'sequential-thinking']),
     knowledge_sources: JSON.stringify([
       { type: 'directory', label: 'Agent Prompts Library', path: '~/apps/agents/prompts/' },
-      { type: 'file', label: 'Persona Reference', path: '~/server-info/persona.md' },
-      { type: 'file', label: 'Workflow Guide', path: '~/server-info/workflow.md' },
+      { type: 'file', label: 'Persona Reference', path: '~/infra/persona.md' },
+      { type: 'file', label: 'Workflow Guide', path: '~/infra/workflow.md' },
       { type: 'url', label: 'n8n Workflows', url: 'http://10.0.1.173:5678' },
       { type: 'url', label: 'Agents App', url: 'http://10.0.1.203' },
     ]),
@@ -591,7 +591,7 @@ deploy.sh <app-name> "commit message"
       { type: 'url', label: 'Prowlarr', url: 'http://10.0.1.183:9696' },
       { type: 'url', label: 'qBittorrent', url: 'http://10.0.1.182:8080' },
       { type: 'url', label: 'Tautulli', url: 'http://10.0.1.168:8181' },
-      { type: 'directory', label: 'Media Manifests', path: '~/kube/manifests/sonarr/' },
+      { type: 'directory', label: 'Media Manifests', path: '~/manifests/sonarr/' },
     ]),
     example_tasks: JSON.stringify([
       { title: 'Media Stack Health Check', description: 'Check all media pods are running, services accessible, NFS mounts healthy, qBittorrent VPN connected. Verify Sonarr/Radarr can reach Prowlarr indexers.' },
@@ -655,9 +655,9 @@ Prowlarr (indexers) → Sonarr/Radarr (requests)
     knowledge_sources: JSON.stringify([
       { type: 'url', label: 'Longhorn UI', url: 'http://10.0.1.172' },
       { type: 'grafana', label: 'Storage Dashboard', url: 'http://10.0.1.163:3000' },
-      { type: 'file', label: 'System Info', path: '~/server-info/system_info.md' },
+      { type: 'file', label: 'System Info', path: '~/infra/system_info.md' },
       { type: 'file', label: 'Storage Metrics Script', path: '~/bin/generate-storage-json.sh' },
-      { type: 'directory', label: 'Longhorn Manifests', path: '~/kube/manifests/longhorn/' },
+      { type: 'directory', label: 'Longhorn Manifests', path: '~/manifests/longhorn/' },
     ]),
     example_tasks: JSON.stringify([
       { title: 'Storage Health Check', description: 'Check Longhorn volume health at 10.0.1.172. Verify all volumes have expected replica count (3 for HA, 1 for fast). Check for degraded volumes, failed replicas, and disk pressure.' },
@@ -738,9 +738,9 @@ ssh ubuntu@node-3 "df -h"
     mcp_servers: JSON.stringify(['kubernetes']),
     knowledge_sources: JSON.stringify([
       { type: 'url', label: 'ArgoCD (HTTPS)', url: 'https://10.0.1.164' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
       { type: 'bookstack', label: 'Security Docs', url: 'http://10.0.1.170' },
-      { type: 'file', label: 'System Info', path: '~/server-info/system_info.md' },
+      { type: 'file', label: 'System Info', path: '~/infra/system_info.md' },
     ]),
     example_tasks: JSON.stringify([
       { title: 'Audit TLS Certificates', description: 'Scan all Ingress resources and services for TLS configuration. Check certificate expiry dates, issuer chains, and key strengths. Flag any certificates expiring within 30 days.' },
@@ -805,7 +805,7 @@ openssl x509 -in cert.pem -text -noout
       { type: 'file', label: 'deploy.sh Script', path: '~/bin/deploy.sh' },
       { type: 'url', label: 'ArgoCD', url: 'https://10.0.1.164' },
       { type: 'url', label: 'Container Registry', url: 'http://10.0.1.20:5000/v2/_catalog' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
       { type: 'directory', label: 'All App Sources', path: '~/apps/' },
     ]),
     example_tasks: JSON.stringify([
@@ -830,7 +830,7 @@ Code Change → deploy.sh → Docker Build → Push to Registry → Update Manif
 | deploy.sh | ~/bin/deploy.sh |
 | Registry | 10.0.1.20:5000 |
 | ArgoCD | 10.0.1.164 |
-| Manifests | ~/kube/manifests/<app>/ |
+| Manifests | ~/manifests/<app>/ |
 | App Source | ~/apps/<app>/ |
 
 ## deploy.sh Internals
@@ -854,10 +854,10 @@ Code Change → deploy.sh → Docker Build → Push to Registry → Update Manif
 curl -s http://10.0.1.20:5000/v2/<app>/tags/list | jq
 
 # Edit manifest to previous tag
-vim ~/kube/manifests/<app>/deployment.yaml
+vim ~/manifests/<app>/deployment.yaml
 
 # Push and sync
-cd ~/kube/manifests && git add . && git commit -m "Rollback <app>" && git push
+cd ~/manifests && git add . && git commit -m "Rollback <app>" && git push
 argocd app sync <app>
 \`\`\`
 
@@ -882,8 +882,8 @@ argocd app sync <app>
     tools: JSON.stringify(['kubectl', 'metallb', 'pihole', 'nslookup', 'dig', 'curl', 'iptables', 'pfSense']),
     mcp_servers: JSON.stringify(['kubernetes']),
     knowledge_sources: JSON.stringify([
-      { type: 'file', label: 'System Info', path: '~/server-info/system_info.md' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'file', label: 'System Info', path: '~/infra/system_info.md' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
       { type: 'url', label: 'Pi-hole Primary', url: 'http://10.0.1.53/admin' },
       { type: 'url', label: 'Pi-hole Secondary', url: 'http://10.0.1.54/admin' },
       { type: 'url', label: 'Grafana', url: 'http://10.0.1.163:3000' },
@@ -965,9 +965,9 @@ kubectl get endpoints -n <ns> <svc-name>
     mcp_servers: JSON.stringify(['kubernetes']),
     knowledge_sources: JSON.stringify([
       { type: 'url', label: 'Longhorn UI', url: 'http://10.0.1.172' },
-      { type: 'file', label: 'System Info', path: '~/server-info/system_info.md' },
+      { type: 'file', label: 'System Info', path: '~/infra/system_info.md' },
       { type: 'bookstack', label: 'DR Documentation', url: 'http://10.0.1.170' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
       { type: 'grafana', label: 'Storage Dashboards', url: 'http://10.0.1.163:3000' },
     ]),
     example_tasks: JSON.stringify([
@@ -1038,7 +1038,7 @@ kubectl get endpoints -n <ns> <svc-name>
     tools: JSON.stringify(['k3s', 'apt', 'npm', 'docker', 'kubectl', 'ssh', 'systemctl']),
     mcp_servers: JSON.stringify(['kubernetes']),
     knowledge_sources: JSON.stringify([
-      { type: 'file', label: 'System Info', path: '~/server-info/system_info.md' },
+      { type: 'file', label: 'System Info', path: '~/infra/system_info.md' },
       { type: 'url', label: 'K3s Releases', url: 'https://github.com/k3s-io/k3s/releases' },
       { type: 'bookstack', label: 'Maintenance Docs', url: 'http://10.0.1.170' },
       { type: 'directory', label: 'All App Sources', path: '~/apps/' },
@@ -1122,7 +1122,7 @@ kubectl uncordon <node>
       { type: 'url', label: 'n8n Workflows', url: 'http://10.0.1.173:5678' },
       { type: 'url', label: 'Uptime Kuma', url: 'http://10.0.1.167:3001' },
       { type: 'file', label: 'Discord Notify Hook', path: '~/.claude/hooks/discord-notify.sh' },
-      { type: 'file', label: 'n8n Operations', path: '~/server-info/n8n-operations.md' },
+      { type: 'file', label: 'n8n Operations', path: '~/infra/n8n-operations.md' },
       { type: 'url', label: 'Grafana Alerting', url: 'http://10.0.1.163:3000/alerting' },
     ]),
     example_tasks: JSON.stringify([
@@ -1273,7 +1273,7 @@ function Scene() {
       { type: 'url', label: 'Container Registry', url: 'http://10.0.1.20:5000/v2/_catalog' },
       { type: 'directory', label: 'All App Sources', path: '~/apps/' },
       { type: 'file', label: 'deploy.sh Script', path: '~/bin/deploy.sh' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
     ]),
     example_tasks: JSON.stringify([
       { title: 'Optimize Dockerfile', description: 'Review a Dockerfile for size and build speed. Apply multi-stage build, minimize layers, use alpine base, leverage build cache, order instructions by change frequency.' },
@@ -1363,7 +1363,7 @@ CMD ["node", "server/index.js"]
     mcp_servers: JSON.stringify(['kubernetes']),
     knowledge_sources: JSON.stringify([
       { type: 'directory', label: 'All App Sources', path: '~/apps/' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
       { type: 'url', label: 'Longhorn Volumes', url: 'http://10.0.1.172' },
       { type: 'bookstack', label: 'Database Docs', url: 'http://10.0.1.170' },
       { type: 'file', label: 'DB Operations Guide', path: '~/apps/agents/prompts/database-ops.md' },
@@ -1443,7 +1443,7 @@ kubectl exec -n bookstack deploy/mysql -- mysqldump -u root -p<pass> bookstack >
     mcp_servers: JSON.stringify(['kubernetes']),
     knowledge_sources: JSON.stringify([
       { type: 'url', label: 'ArgoCD Dashboard', url: 'https://10.0.1.164' },
-      { type: 'directory', label: 'K8s Manifests', path: '~/kube/manifests/' },
+      { type: 'directory', label: 'K8s Manifests', path: '~/manifests/' },
       { type: 'directory', label: 'All App Sources', path: '~/apps/' },
       { type: 'file', label: 'deploy.sh Script', path: '~/bin/deploy.sh' },
       { type: 'bookstack', label: 'GitOps Docs', url: 'http://10.0.1.170' },
@@ -1451,9 +1451,9 @@ kubectl exec -n bookstack deploy/mysql -- mysqldump -u root -p<pass> bookstack >
     example_tasks: JSON.stringify([
       { title: 'ArgoCD App Sync Status', description: 'Check sync status of all ArgoCD applications. Identify any OutOfSync, Degraded, or Unknown apps. For each issue, determine if it requires a manual sync or a manifest fix.' },
       { title: 'Create New ArgoCD Application', description: 'Write an ArgoCD Application manifest for a new app. Configure source (git repo, path), destination (cluster, namespace), sync policy (automated/manual), and health checks.' },
-      { title: 'Manifest Audit', description: 'Review all manifests in ~/kube/manifests/. Check for: resource limits set, health probes configured, security contexts defined, labels consistent, and namespace isolation.' },
+      { title: 'Manifest Audit', description: 'Review all manifests in ~/manifests/. Check for: resource limits set, health probes configured, security contexts defined, labels consistent, and namespace isolation.' },
       { title: 'Fix Drift Detection', description: 'Investigate why ArgoCD reports an app as OutOfSync. Compare live state vs git state. Determine if someone applied changes manually (drift) or if git has unsynced changes.' },
-      { title: 'YAML Template Generation', description: 'Generate a complete set of Kubernetes manifests for a new application: Namespace, Deployment, Service, ArgoCD Application. Follow existing patterns in ~/kube/manifests/.' },
+      { title: 'YAML Template Generation', description: 'Generate a complete set of Kubernetes manifests for a new application: Namespace, Deployment, Service, ArgoCD Application. Follow existing patterns in ~/manifests/.' },
     ]),
     related_agents: JSON.stringify(['Tempo', 'Atlas', 'Forge']),
     prompt_file: null,
@@ -1463,7 +1463,7 @@ kubectl exec -n bookstack deploy/mysql -- mysqldump -u root -p<pass> bookstack >
 \`\`\`
 Developer → Code Change → deploy.sh
   → Docker Build → Push to Registry
-  → Update ~/kube/manifests/<app>/deployment.yaml
+  → Update ~/manifests/<app>/deployment.yaml
   → Git Push → ArgoCD Detects Change
   → ArgoCD Syncs → Pod Updated
 \`\`\`
@@ -1473,12 +1473,12 @@ Developer → Code Change → deploy.sh
 |---------|-------|
 | URL | https://10.0.1.164 |
 | Sync Policy | Manual (most apps) |
-| Repo | ~/kube/manifests/ (git) |
+| Repo | ~/manifests/ (git) |
 | Refresh | 3 minutes (default) |
 
 ## Manifest Structure
 \`\`\`
-~/kube/manifests/
+~/manifests/
 ├── <app>/
 │   ├── namespace.yaml      # Namespace definition
 │   ├── deployment.yaml     # Deployment + containers + probes

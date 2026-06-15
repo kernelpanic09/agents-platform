@@ -12,7 +12,7 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 
-# ssh is required for the scheduler to reach cmd1 and run `claude -p`
+# ssh is required for the scheduler to reach the dispatch host and run `claude -p`
 RUN apk add --no-cache openssh-client
 
 # Create non-root user
