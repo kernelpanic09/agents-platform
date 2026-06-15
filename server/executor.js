@@ -185,6 +185,13 @@ export function stepFromEvent(evt, atMs = null) {
  * line, ending with a `result` event that carries the final text + usage.
  * Returns the same shape as parseClaudeJson plus a steps timeline.
  */
+function resultErrorSubtype(parsed) {
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  if (parsed.subtype && parsed.subtype !== 'success') return parsed.subtype; // e.g. error_max_turns
+  if (parsed.is_error) return 'error';
+  return undefined;
+}
+
 export function parseStreamJson(stdout) {
   const steps = [];
   let final = null;
@@ -198,7 +205,16 @@ export function parseStreamJson(stdout) {
     if (step) steps.push(step);
   }
   if (!final) return { result: '', raw: stdout, steps, parseError: 'no result event in stream' };
-  return { result: final.result || '', raw: stdout, parsed: final, steps };
+  const errorSubtype = resultErrorSubtype(final);
+  return { result: final.result || '', raw: stdout, parsed: final, steps, ...(errorSubtype ? { errorSubtype } : {}) };
+}
+
+// The result text of a dispatch. For stream-json output (parsed.steps present) an
+// empty result stays EMPTY — falling back to raw stdout would propagate the whole
+// NDJSON event log as the agent's "output". Legacy single-JSON output keeps the
+// raw-stdout fallback (its raw form is the result).
+export function resultText(parsed, stdout) {
+  return parsed.result || (parsed.steps ? '' : (stdout || ''));
 }
 
 /**

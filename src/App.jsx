@@ -18,6 +18,8 @@ const PipelinesPage = lazy(() => import('./pages/PipelinesPage'));
 const PipelineDetailPage = lazy(() => import('./pages/PipelineDetailPage'));
 const CrewsPage = lazy(() => import('./pages/CrewsPage'));
 const SkillsPage = lazy(() => import('./pages/SkillsPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const ReportDetailPage = lazy(() => import('./pages/ReportDetailPage'));
 const ObservabilityPage = lazy(() => import('./pages/ObservabilityPage'));
 const EvalPage = lazy(() => import('./pages/EvalPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -87,6 +89,14 @@ export default function App() {
               <Route
                 path="/skills"
                 element={<Suspense fallback={SuspenseLoader}><SkillsPage /></Suspense>}
+              />
+              <Route
+                path="/reports"
+                element={<Suspense fallback={SuspenseLoader}><ReportsPage /></Suspense>}
+              />
+              <Route
+                path="/reports/:slug"
+                element={<Suspense fallback={SuspenseLoader}><ReportDetailPage /></Suspense>}
               />
               <Route
                 path="/observability"

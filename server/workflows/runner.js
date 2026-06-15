@@ -1,11 +1,12 @@
 import { routeTask } from './router.js';
 import { buildRagGraph, buildRoutedGraph, buildSshGraph } from './graphs.js';
-import { buildAgentPrompt, buildMeetingPrompt, runClaude, resolveBackend, resolveInference, extractSummary, extractVerdict, worstVerdict, parseClaudeJson, sendDiscordNotify } from '../executor.js';
+import { buildAgentPrompt, buildMeetingPrompt, runClaude, resolveBackend, resolveInference, extractSummary, extractVerdict, worstVerdict, parseClaudeJson, resultText, sendDiscordNotify } from '../executor.js';
 import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
 import { resolveTier } from '../safety-prompt.js';
 import { agentDispatchContext, meetingDispatchContext, hasProvisioning } from '../dispatch-context.js';
 import { distillRunMemories } from '../memory.js';
+import { onRunFinished as reportsOnRunFinished } from '../reports.js';
 import { IS_DEMO } from '../demo.js';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
@@ -74,10 +75,11 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
       if (timedOut) { status = 'timeout'; errorMessage = 'Run exceeded timeout'; }
       else if (ec !== 0) { status = 'failed'; errorMessage = `claude exited ${ec}: ${stderr.slice(0, 500)}`; }
       exitCode = ec ?? -1;
-      transcript = stdout;
       const parsed = parseClaudeJson(stdout);
-      summary = extractSummary(parsed.result);
-      verdicts.push(extractVerdict(parsed.result));
+      const text = resultText(parsed, stdout);
+      transcript = text;
+      summary = extractSummary(text);
+      verdicts.push(extractVerdict(text));
       emitRunEvent(runId, { type: 'agent_done', agent: 'Meeting', status: timedOut ? 'timeout' : ec === 0 ? 'success' : 'failed', summary });
       steps.push({ name: 'meeting', status: timedOut ? 'timeout' : ec === 0 ? 'done' : 'failed' });
     } else if (agents.length === 1) {
@@ -128,10 +130,11 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
           if (timedOut) { status = 'timeout'; errorMessage = `Agent ${agent.name} timed out`; outputs[agent.name] = '[timed out]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'timeout' }); break; }
           if (ec !== 0) { status = 'failed'; errorMessage = `Agent ${agent.name} exited ${ec}`; outputs[agent.name] = '[failed]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'failed' }); break; }
           const parsed = parseClaudeJson(stdout);
-          outputs[agent.name] = parsed.result || stdout;
-          verdicts.push(extractVerdict(parsed.result || stdout));
-          prior = parsed.result || stdout;
-          emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'success', summary: extractSummary(parsed.result || stdout) });
+          const text = resultText(parsed, stdout);
+          outputs[agent.name] = text;
+          verdicts.push(extractVerdict(text));
+          prior = text;
+          emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'success', summary: extractSummary(text) });
         }
       } else {
         const MAX_PARALLEL = getSetting('max_parallel_per_run');
@@ -144,13 +147,13 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
             const prompt = buildAgentPrompt(agent, schedule.task_prompt, null, tier, ctx);
             const result = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills, onStreamEvent: (step) => emitRunEvent(runId, { type: 'step', agent: agent.name, step }) });
             const ok = !result.timedOut && result.exitCode === 0;
-            emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: result.timedOut ? 'timeout' : ok ? 'success' : 'failed', summary: ok ? extractSummary(parseClaudeJson(result.stdout).result || '') : undefined });
+            emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: result.timedOut ? 'timeout' : ok ? 'success' : 'failed', summary: ok ? extractSummary(resultText(parseClaudeJson(result.stdout), result.stdout)) : undefined });
             return { agent, ...result };
           }));
           for (const r of batchResults) {
             if (r.timedOut) { outputs[r.agent.name] = '[timed out]'; status = 'failed'; }
             else if (r.exitCode !== 0) { outputs[r.agent.name] = `[exit ${r.exitCode}]`; status = 'failed'; }
-            else { const parsed = parseClaudeJson(r.stdout); outputs[r.agent.name] = parsed.result || r.stdout; verdicts.push(extractVerdict(parsed.result || r.stdout)); }
+            else { const parsed = parseClaudeJson(r.stdout); const text = resultText(parsed, r.stdout); outputs[r.agent.name] = text; verdicts.push(extractVerdict(text)); }
           }
         }
       }
@@ -187,6 +190,10 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   const title = `${schedule.name} -- ${status} in ${durationSec}s`;
   const body = `${(summary || errorMessage || '').slice(0, 400)}\nView: ${APP_BASE_URL}/schedules/runs/${runId}`;
   sendDiscordNotify(title, body, color).catch(() => {});
+
+  // Combined Reports: a member run finished — debounced rebuild of any report
+  // group this schedule belongs to (never breaks the run path).
+  try { reportsOnRunFinished(schedule.id); } catch { /* reports never break the run path */ }
 
   // Operational alert: an agent reported a CRITICAL verdict - distinct red alert
   // so verdicts feed monitoring, not just badges.

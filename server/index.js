@@ -21,6 +21,8 @@ import pipelinesRouter from './routes/pipelines.js';
 import crewsRouter from './routes/crews.js';
 import packsRouter from './routes/packs.js';
 import skillsRouter from './routes/skills.js';
+import reportsRouter from './routes/reports.js';
+import { initReportEngine } from './reports.js';
 import observabilityRouter from './routes/observability.js';
 import evalRouter from './routes/eval.js';
 import { initMcpRegistry } from './mcp-registry.js';
@@ -59,6 +61,8 @@ initTelemetry(db);
 initSettings(db);
 initApiKeys(db);
 initMcpRegistry(db);
+// Combined Reports: debounced rebuild engine (run-completion hook lives in the runner)
+initReportEngine(db);
 seedDemoData(db);
 
 // Create scheduler (always — API routes need the handle; feature flag only gates hydrate)
@@ -81,6 +85,7 @@ app.use('/api/pipelines', pipelinesRouter(db, scheduler));
 app.use('/api/crews', crewsRouter(db, scheduler));
 app.use('/api/packs', packsRouter(db));
 app.use('/api/skills', skillsRouter(db));
+app.use('/api/reports', reportsRouter(db));
 app.use('/api/observability', observabilityRouter(db));
 app.use('/api/eval', evalRouter(db));
 app.use('/api/settings', settingsRouter());
