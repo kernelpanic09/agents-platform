@@ -38,3 +38,58 @@ export function parseEnv(text) {
   }
   return { vars, errors };
 }
+
+function row(r) { return r || null; }
+
+export function listVariables(db) {
+  return db.prepare('SELECT key, value, description, created_at, updated_at FROM variables ORDER BY key').all();
+}
+
+export function getVariable(db, key) {
+  return row(db.prepare('SELECT key, value, description, created_at, updated_at FROM variables WHERE key = ?').get(key));
+}
+
+function validate(key, value) {
+  if (!isValidKey(key)) throw new Error(`invalid key "${key}": must match ${KEY_RE}`);
+  if (String(value ?? '').length > VALUE_MAX) throw new Error(`value too long (max ${VALUE_MAX})`);
+}
+
+export function createVariable(db, { key, value = '', description = '' }) {
+  validate(key, value);
+  if (getVariable(db, key)) throw new Error(`variable "${key}" already exists`);
+  db.prepare('INSERT INTO variables (key, value, description) VALUES (?, ?, ?)').run(key, String(value), String(description || ''));
+  return getVariable(db, key);
+}
+
+export function updateVariable(db, key, { value, description } = {}) {
+  const existing = getVariable(db, key);
+  if (!existing) return null;
+  const nextValue = value !== undefined ? String(value) : existing.value;
+  if (nextValue.length > VALUE_MAX) throw new Error(`value too long (max ${VALUE_MAX})`);
+  const nextDesc = description !== undefined ? String(description) : existing.description;
+  db.prepare(`UPDATE variables SET value = ?, description = ?, updated_at = datetime('now') WHERE key = ?`).run(nextValue, nextDesc, key);
+  return getVariable(db, key);
+}
+
+export function deleteVariable(db, key) {
+  return db.prepare('DELETE FROM variables WHERE key = ?').run(key).changes > 0;
+}
+
+export function varsMap(db) {
+  const map = {};
+  for (const r of db.prepare('SELECT key, value FROM variables').all()) map[r.key] = r.value;
+  return map;
+}
+
+// Replace the entire variable set from a .env-style block (atomic). Throws on any bad line.
+export function replaceAllFromEnv(db, text) {
+  const { vars, errors } = parseEnv(text);
+  if (errors.length) throw new Error(errors.join('; '));
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM variables').run();
+    const ins = db.prepare('INSERT INTO variables (key, value) VALUES (?, ?)');
+    for (const [k, v] of Object.entries(vars)) ins.run(k, v);
+  });
+  tx();
+  return { count: Object.keys(vars).length };
+}

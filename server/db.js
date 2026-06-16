@@ -379,6 +379,17 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_agent_memories_agent ON agent_memories(agent_id);
   `);
 
+  // User-defined variables ("master sheet"): {{KEY}} substituted into prompts at dispatch.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS variables (
+      key         TEXT PRIMARY KEY,
+      value       TEXT NOT NULL DEFAULT '',
+      description TEXT DEFAULT '',
+      created_at  TEXT DEFAULT (datetime('now')),
+      updated_at  TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
   // Seed if empty
   const count = db.prepare('SELECT COUNT(*) as count FROM agents').get();
   if (count.count === 0) {
