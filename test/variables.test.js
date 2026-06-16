@@ -50,6 +50,9 @@ const dir = mkdtempSync(join(tmpdir(), 'vars-'));
 process.env.DATA_DIR = dir;
 const { initDb } = await import('../server/db.js');
 const db = initDb();
+// initDb seeds 4 starter variables on a fresh DB; the CRUD tests below assume an
+// empty table, so clear it first to keep them isolated from the seed.
+db.prepare('DELETE FROM variables').run();
 after(() => { try { db.close(); } catch {} rmSync(dir, { recursive: true, force: true }); });
 
 test('createVariable: validates key, rejects dup, stores', () => {

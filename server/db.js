@@ -417,7 +417,7 @@ export function initDb() {
     const nameToId = new Map(db.prepare('SELECT id, name FROM agents').all().map(a => [a.name, a.id]));
     const ids = (names) => JSON.stringify(names.map(n => nameToId.get(n)).filter(Boolean));
     const SEED_SCHEDULES = [
-      ['Nightly Infrastructure Audit', 'parallel', '0 2 * * *', ['Atlas', 'Sentinel', 'Bastion', 'Patch'], 'Walk the cluster top to bottom; flag any node over 80% CPU or with disk pressure and verify last night’s backups.'],
+      ['Nightly Infrastructure Audit', 'parallel', '0 2 * * *', ['Atlas', 'Sentinel', 'Bastion', 'Patch'], 'Walk the {{CLUSTER_NAME}} cluster top to bottom; flag any node over 80% CPU or with disk pressure and verify last night\'s backups.'],
       ['Security & Compliance Sweep', 'sequential', '0 3 * * 1', ['Vault', 'Cipher', 'Sentinel', 'Relay'], 'Weekly security sweep: scan for exposed secrets, TLS expiry, and unauthorized changes; report to Discord.'],
       ['Incident Response Drill', 'meeting', '0 14 * * 5', ['Atlas', 'Mirror', 'Bastion', 'Sentinel', 'Relay'], 'Tabletop incident: a worker node fails — coordinate detection, failover, and recovery end to end.'],
       ['Release Readiness Pipeline', 'sequential', '0 9 * * 1-5', ['Tempo', 'Dock', 'Flux', 'Proxy'], 'Pre-release gate: build integrity, image scan, manifest diff, and ingress checks before promotion.'],
@@ -439,6 +439,19 @@ export function initDb() {
     });
     insertScheds(SEED_SCHEDULES);
     console.log(`Seeded ${SEED_SCHEDULES.length} schedule templates (paused)`);
+  }
+
+  // Starter variables so a new user has examples to edit (a "grab and go" master sheet).
+  if (db.prepare('SELECT COUNT(*) AS c FROM variables').get().c === 0) {
+    const seedVar = db.prepare('INSERT INTO variables (key, value, description) VALUES (?, ?, ?)');
+    const tx = db.transaction(() => {
+      seedVar.run('CLUSTER_NAME', 'demo-cluster', 'Name of the cluster/environment agents operate on');
+      seedVar.run('CLOUD_PROVIDER', 'kubernetes', 'Where workloads run (kubernetes, aws, gcp, ...)');
+      seedVar.run('PRIMARY_DOMAIN', 'demo.example.com', 'Primary domain for services');
+      seedVar.run('CONTAINER_REGISTRY', 'registry.demo.example.com:5000', 'Container image registry');
+    });
+    tx();
+    console.log('[db] seeded 4 starter variables');
   }
 
   return db;
