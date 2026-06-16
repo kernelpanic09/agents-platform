@@ -1,6 +1,6 @@
 {
   "name": "agents-platform",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "Self-hosted AI agent orchestration platform: agent personas with skills (SKILL.md), provisioned MCP tools, and episodic memory, composed into conditional DAG pipelines and crews, streamed live over SSE, governed by safety tiers, and fused into AI-synthesized reports with metric trends.",
   "keywords": [
