@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { policyToPrompt, resolveTier, tierCliFlags } from './safety-prompt.js';
 import { recordTrace } from './observability/telemetry.js';
 import { getSetting } from './settings.js';
+import { substitute } from './variables.js';
 
 const SSH_TARGET = process.env.SSH_TARGET || 'ubuntu@your-host';
 const SSH_KEY_PATH = process.env.SSH_KEY_PATH || '/secrets/ssh/id_ed25519';
@@ -69,7 +70,8 @@ export function buildAgentPrompt(agent, taskPrompt, priorTranscript = null, tier
   parts.push('\n\nEnd your response with exactly two final lines:\n');
   parts.push('STATUS: <ok|attention|critical>   (your overall assessment: ok = nothing notable, attention = degraded or needs follow-up, critical = urgent problem)\n');
   parts.push('SUMMARY: <one line, under 300 characters>');
-  return parts.join('');
+  const assembled = parts.join('');
+  return ctx?.vars ? substitute(assembled, ctx.vars) : assembled;
 }
 
 /**
@@ -95,7 +97,8 @@ export function buildMeetingPrompt(agents, taskPrompt, tier = 'read_only', ctx =
   parts.push('End the transcript with exactly two final lines:\n');
   parts.push('STATUS: <ok|attention|critical>   (the meeting\'s overall assessment)\n');
   parts.push('SUMMARY: <decisions reached and follow-up actions, under 300 chars>');
-  return parts.join('');
+  const assembled = parts.join('');
+  return ctx?.vars ? substitute(assembled, ctx.vars) : assembled;
 }
 
 /**

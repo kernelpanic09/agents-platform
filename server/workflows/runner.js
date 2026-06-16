@@ -6,6 +6,7 @@ import { getSetting } from '../settings.js';
 import { resolveTier } from '../safety-prompt.js';
 import { agentDispatchContext, meetingDispatchContext, hasProvisioning } from '../dispatch-context.js';
 import { distillRunMemories } from '../memory.js';
+import { substitute } from '../variables.js';
 import { onRunFinished as reportsOnRunFinished } from '../reports.js';
 import { IS_DEMO } from '../demo.js';
 import { simulateRun } from '../demo-sim.js';
@@ -81,7 +82,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
       const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
       recordProvision(agent.name, ctx);
       const result = await graph.invoke({
-        task: schedule.task_prompt,
+        task: substitute(schedule.task_prompt, ctx.vars || {}),
         agentId: agent.id,
         agentName: agent.name,
         mode: schedule.mode,
