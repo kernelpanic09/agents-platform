@@ -91,30 +91,36 @@ The platform was built in five planned phases (visibility → configurability �
 - Live platform settings with clear precedence: **DB override → env seed → code default** - tune concurrency, timeouts, models, retention, safety preamble, and SLO targets at runtime with no redeploy
 - Model allowlist editable live (add a new Claude model without shipping code)
 
-### 10. RAG Engine
+### 10. Environment Variables ("master sheet")
+- Define non-secret key/value variables once in the UI (or paste a whole `.env`-style sheet); reference them anywhere in a persona's system prompt or a task with `{{KEY}}`
+- Substituted at dispatch across every execution backend, so the shipped personas point at *your* environment (cluster, cloud, domain, registry) with no code edits
+- Substitution scope: variables resolve in task prompts on every dispatch, and in agent system prompts on multi-agent / sequential / meeting / pipeline dispatches (single-agent runs substitute the task only)
+- Undefined `{{tokens}}` are left untouched; non-secret only (secrets stay in env / K8s)
+
+### 11. RAG Engine
 - Vector store: Qdrant with Ollama embeddings (`nomic-embed-text`)
 - Pluggable document loaders: Markdown files, YAML, Terraform, URLs, transcripts
 - RAG Playground UI: load documents, query the index, inspect retrieved chunks
 - LangChain retrieval chain with Anthropic Claude for generation
 
-### 11. LangGraph Workflows
+### 12. LangGraph Workflows
 - Task router: Claude Haiku classifies each request (RAG query / workflow / SSH dispatch)
 - State machine graphs built with `@langchain/langgraph` - including **dynamic graphs compiled from user-built pipelines**
 - Nodes: a RAG retrieval + generation path and an SSH-dispatch path (the agent's `kubectl`/filesystem/MCP tooling runs on the run host via Claude Code, not in-process)
 
-### 12. Observability, SLOs, and Cost
+### 13. Observability, SLOs, and Cost
 - Telemetry for **both backends**: API calls and SSH runs (token usage parsed from `claude`'s JSON output) - every run lands in the cost dashboard
 - **"Savings vs API" view** - subscription runs cost $0 but are metered at notional API prices, so the dashboard shows exactly what the SSH design saves
 - **Platform SLOs** - success rate, p95 run latency, and daily cost vs live-configurable targets, with green/warning/breach status and Discord alerting on transition into breach
 - Recharts dashboard: daily cost trends, model distribution, latency percentiles, recent traces
 
-### 13. Evaluation & Self-Improvement
+### 14. Evaluation & Self-Improvement
 - Eval suites with LLM-as-judge scoring; judge model and pass threshold are configurable per run
 - Runs on whatever the LLM layer resolves - Anthropic when a key is present, otherwise **any OpenAI-compatible endpoint including fully-local Ollama models** ($0; speed and judge quality scale with the model and hardware)
 - **Prompt A/B testing** - score the agent's current prompt (A) against a candidate (B) on the same suite, side by side
 - **Promote-to-active** - one click sets the winning prompt live (auto-snapshotting the old one), closing the measure → improve → ship loop
 
-### 14. Portability: Agent Packs & MCP Registry
+### 15. Portability: Agent Packs & MCP Registry
 - **Agent-pack YAML import/export** - versioned packs of agents, crews, schedules, and pipelines; cross-references travel by agent *name*, so a pack moves cleanly between deployments
 - **DB-backed MCP registry** - the integration catalog is editable at runtime (add/edit/delete servers, no redeploy), with per-server env-var validation badges and a remote connection test; registry entries are what [MCP provisioning](#3-mcp-tool-provisioning) resolves at dispatch
 
@@ -210,6 +216,7 @@ Express.js (port 3001)
     |-- /api/agents        Agent CRUD, inference profiles, prompt versions,
     |                      attached skills, episodic memories
     |-- /api/skills        Skill library (SKILL.md) + catalog adopt + import
+    |-- /api/variables     Master sheet: {{KEY}} substituted into prompts at dispatch
     |-- /api/reports       Combined Reports: synthesis builds + metric trends
     |-- /api/schedules     Cron scheduler
     |-- /api/runs          Run history + SSE stream (lifecycle + tool steps) + retry
@@ -226,7 +233,7 @@ Express.js (port 3001)
     |-- /api/eval          Evaluation suites + A/B testing
     |
     |-- SQLite (better-sqlite3, WAL)
-    |       agents, skills + agent_skills, agent_memories,
+    |       agents, skills + agent_skills, agent_memories, variables,
     |       schedules, runs (durable queue, provisioning audit),
     |       pipelines, crews, traces (step timelines), eval suites/runs,
     |       report_groups + report_builds + report_metric_points,
@@ -399,6 +406,13 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | `GET` | `/api/skills/catalog` | Live listing of the public anthropics/skills repo (cached, offline fallback) |
 | `POST` | `/api/skills/import` | Import a SKILL.md by URL (GitHub blob links normalized) |
 | `POST` | `/api/skills/validate` | Validate raw SKILL.md frontmatter without saving |
+
+### Variables
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET/POST` | `/api/variables` | list / create a variable |
+| `PUT` | `/api/variables` | bulk replace from a `.env`-style body `{ env }` |
+| `PUT/DELETE` | `/api/variables/:key` | update / delete |
 
 ### Combined Reports
 | Method | Path | Description |
