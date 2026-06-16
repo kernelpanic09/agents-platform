@@ -73,7 +73,7 @@ export default function VariablesPage() {
           <textarea value={envText} onChange={(e) => setEnvText(e.target.value)} rows={14} spellCheck={false}
             placeholder={'CLUSTER_NAME=prod-1\nPRIMARY_DOMAIN=example.com'}
             className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-violet-500/50" />
-          <p className="text-xs text-zinc-500 mt-1">One <code>KEY=value</code> per line. Keys are UPPER_SNAKE. Saving replaces the whole set.</p>
+          <p className="text-xs text-zinc-500 mt-1">One <code>KEY=value</code> per line. Keys are UPPER_SNAKE. Saving replaces the whole set (descriptions are not kept in bulk mode).</p>
           <button onClick={saveBulk} className="mt-3 px-4 py-2 text-sm rounded-lg bg-violet-600 hover:bg-violet-500 font-medium">Save sheet</button>
         </div>
       ) : (
