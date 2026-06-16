@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isValidKey, parseEnv, substitute } from '../server/variables.js';
+import { buildAgentPrompt, buildMeetingPrompt } from '../server/executor.js';
 
 test('isValidKey: uppercase/underscore, must start with a letter', () => {
   for (const k of ['CLUSTER_NAME', 'A', 'X1', 'PRIMARY_DOMAIN']) assert.equal(isValidKey(k), true, k);
@@ -82,4 +83,19 @@ test('replaceAllFromEnv: atomic replace; bad line rejects whole batch', () => {
   const r = replaceAllFromEnv(db, '# sheet\nCLUSTER_NAME=prod-1\nREGION=us-west-2');
   assert.equal(r.count, 2);
   assert.deepEqual(varsMap(db), { CLUSTER_NAME: 'prod-1', REGION: 'us-west-2' });
+});
+
+test('buildAgentPrompt/buildMeetingPrompt substitute ctx.vars', () => {
+  const agent = { name: 'Atlas', title: 'Infra', system_prompt: 'Audit the {{CLUSTER_NAME}} cluster.' };
+  const ctx = { vars: { CLUSTER_NAME: 'prod-1' } };
+  const p = buildAgentPrompt(agent, 'check {{CLUSTER_NAME}} nodes', null, 'read_only', ctx);
+  assert.ok(p.includes('Audit the prod-1 cluster.'));
+  assert.ok(p.includes('check prod-1 nodes'));
+  assert.ok(!p.includes('{{CLUSTER_NAME}}'));
+  // no ctx.vars -> unchanged (no-op)
+  const p2 = buildAgentPrompt(agent, 'check {{CLUSTER_NAME}} nodes', null, 'read_only', {});
+  assert.ok(p2.includes('{{CLUSTER_NAME}}'));
+
+  const m = buildMeetingPrompt([agent], 'discuss {{CLUSTER_NAME}}', 'read_only', ctx);
+  assert.ok(m.includes('discuss prod-1'));
 });

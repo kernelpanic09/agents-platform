@@ -7,6 +7,7 @@ import { getMcp } from './mcp-registry.js';
 import { skillsForAgent, parseSkillMd } from './skills.js';
 import { memoriesForPrompt } from './memory.js';
 import { getSetting } from './settings.js';
+import { varsMap } from './variables.js';
 
 // Inline fallback (api/openai backends) caps each skill body so a long manual
 // can't crowd out the actual task.
@@ -89,7 +90,7 @@ function toInline(skill) {
  * backends are single chat completions with no tool runtime.
  */
 export function agentDispatchContext(db, agent, { backend = 'subscription' } = {}) {
-  const ctx = { mcpConfig: null, skills: null, inlineSkills: null, memories: null, provisioned: { mcp: [], skills: [] } };
+  const ctx = { mcpConfig: null, skills: null, inlineSkills: null, memories: null, vars: varsMap(db), provisioned: { mcp: [], skills: [] } };
   if (backend === 'subscription') {
     const mcp = buildAgentMcp(db, agent);
     if (mcp) {
@@ -121,7 +122,7 @@ export function hasProvisioning(ctx) {
 /** Union context for meeting mode (one dispatch voices all agents). */
 export function meetingDispatchContext(db, agents = [], opts = {}) {
   const backend = opts.backend || 'subscription';
-  const ctx = { mcpConfig: null, skills: null, inlineSkills: null, provisioned: { mcp: [], skills: [] } };
+  const ctx = { mcpConfig: null, skills: null, inlineSkills: null, vars: varsMap(db), provisioned: { mcp: [], skills: [] } };
 
   if (backend === 'subscription') {
     const servers = {};
