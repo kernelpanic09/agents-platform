@@ -614,7 +614,7 @@ npm run dev
 npm run build
 npm start
 
-# Run the unit test suite (120+ tests, no API key or SSH needed)
+# Run the unit test suite (134 tests, no API key or SSH needed)
 npm test
 ```
 
