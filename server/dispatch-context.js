@@ -81,10 +81,12 @@ function toInline(skill) {
 /**
  * Everything one agent's declarations contribute to one dispatch:
  *   {
- *     mcpConfig,                       // -> claude --mcp-config (ssh backend)
- *     skills: [{slug, content}],       // -> materialized .claude/skills/ (ssh backend)
- *     inlineSkills: [{name, ...}],     // -> appended to the prompt (api/openai backends)
- *     provisioned: { mcp: [], skills: [] }   // -> runs.provisioning audit trail
+ *     mcpConfig,                            // -> claude --mcp-config (ssh backend)
+ *     skills: [{slug, content}],            // -> materialized .claude/skills/ (ssh backend)
+ *     inlineSkills: [{name, ...}],          // -> appended to the prompt (api/openai backends)
+ *     memories: [{content, created_at}],    // -> injected into the prompt, all backends
+ *     vars: { KEY: value },                 // -> substituted into the assembled prompt
+ *     provisioned: { mcp: [], skills: [] }  // -> runs.provisioning audit trail
  *   }
  * MCP only applies to the subscription (claude CLI) backend - the api/openai
  * backends are single chat completions with no tool runtime.
