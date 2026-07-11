@@ -309,6 +309,7 @@ To run against real infrastructure, set `DEMO_MODE=false` and configure an execu
 |----------|---------|-------------|
 | `PORT` | `3001` | Express server port |
 | `DATA_DIR` | `.` | Directory for `agents.db` SQLite file |
+| `APP_BASE_URL` | `http://localhost:3001` | Public base URL used to build links in Discord run notifications and SLO breach alerts. Set this to your external URL in any non-localhost deployment. |
 | `ANTHROPIC_API_KEY` | _(required for RAG, eval, single-agent runs)_ | Anthropic API key for RAG chat, the eval judge, and the single-agent task router. **Not needed for multi-agent SSH dispatch.** |
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant vector store URL |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama embedding server URL |
@@ -334,6 +335,7 @@ To run against real infrastructure, set `DEMO_MODE=false` and configure an execu
 | `STEP_STREAMING` | `on` | SSH dispatch emits stream-json: live tool-call step timelines, persisted on traces |
 | `RETENTION_MAX_RUNS_PER_SCHEDULE` | `200` | Keep newest N runs per schedule (pruned nightly) |
 | `RETENTION_MAX_AGE_DAYS` | `90` | Drop finished runs older than this |
+| `METRIC_RETENTION_DAYS` | `180` | Drop Combined Report metric-series points older than this |
 | `DISCORD_WEBHOOK_URL` | _(optional)_ | Discord webhook for run + SLO-breach notifications |
 | `DEMO_MODE` | `false` | Seed demo data and disable SSH |
 
