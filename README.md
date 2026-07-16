@@ -377,7 +377,6 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | Live Streaming | Server-Sent Events (native, no extra deps) |
 | Scheduling | node-cron + durable SQLite-backed run queue |
 | Portability | `yaml` (agent packs) |
-| Schema Validation | Zod |
 | Containerization | Docker, Docker Compose |
 
 ---
