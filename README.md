@@ -585,7 +585,7 @@ agents-platform/
 │                               # Reports, ReportDetail (briefing + trends), RagPlayground, Workflows,
 │                               # Observability (SLOs), Eval (A/B), Settings (hub + keys + MCP + packs)
 │
-└── test/                       # 16 files, 120+ cases (node:test):
+└── test/                       # 18 files, 134 cases (node:test):
     ├── pipeline.test.js        #   DAG validation, sandboxed conditions, LangGraph routing
     ├── reports.test.js / metrics.test.js   # synthesis engine + metric-series normalization
     ├── skills.test.js          #   SKILL.md parse, materialization, attach
