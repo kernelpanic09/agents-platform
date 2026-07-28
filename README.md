@@ -314,9 +314,11 @@ To run against real infrastructure, set `DEMO_MODE=false` and configure an execu
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant vector store URL |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama embedding server URL |
 | `EMBED_MODEL` | `nomic-embed-text` | Ollama model for embeddings |
+| `ALLOWED_INGEST_DIRS` | _(host-specific)_ | Comma-separated list of directories the RAG ingest endpoint may read from; requests outside these paths are rejected (path-traversal guard) |
 | `SSH_TARGET` | _(required for dispatch)_ | Remote host in `user@host` format |
 | `SSH_KEY_PATH` | _(optional)_ | Path to SSH private key |
 | `CLAUDE_MODEL` | `sonnet` | Claude model to use for SSH dispatch |
+| `APPS_ROOT` | _(host-specific)_ | Root directory for application source; used to validate schedule `app_directory` values and as the base path for SSH dispatch workspaces |
 | `EXECUTION_BACKEND` | `subscription` | Default run backend: `subscription` (SSH + `claude -p`, no API cost), `api` (Anthropic API), or `openai` (any OpenAI-compatible endpoint) |
 | `API_MAX_TOKENS` | `8192` | Max output tokens per turn for the `api` / `openai` backends |
 | `OPENAI_BASE_URL` | _(required for `openai` backend)_ | Any OpenAI-compatible base URL, e.g. `http://ollama:11434/v1` for free local models |
