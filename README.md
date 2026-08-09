@@ -377,7 +377,7 @@ Both backends return identical run records, and `api`-backend runs are metered i
 | Embeddings | Ollama (nomic-embed-text) |
 | SSH Dispatch | Native Node.js `child_process` over SSH |
 | Live Streaming | Server-Sent Events (native, no extra deps) |
-| Scheduling | node-cron + durable SQLite-backed run queue |
+| Scheduling | node-cron (trigger), cron-parser (validation / next-run), cronstrue (human labels) + durable SQLite-backed run queue |
 | Portability | `yaml` (agent packs) |
 | Containerization | Docker, Docker Compose |
 
