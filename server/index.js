@@ -29,6 +29,8 @@ import evalRouter from './routes/eval.js';
 import { initMcpRegistry } from './mcp-registry.js';
 import mcpRouter from './routes/mcp.js';
 import { syncAgencyAgents } from './agency-sync.js';
+import ticketsRouter from './routes/tickets.js';
+import { ensureTicketTables } from './tickets.js';
 import { createScheduler } from './scheduler.js';
 import { runClaudeRemote } from './executor.js';
 import { seedDemoData, IS_DEMO } from './demo.js';
@@ -64,6 +66,8 @@ initApiKeys(db);
 initMcpRegistry(db);
 // Combined Reports: debounced rebuild engine (run-completion hook lives in the runner)
 initReportEngine(db);
+// Ticket tables (global single-board, no project FK)
+ensureTicketTables(db);
 seedDemoData(db);
 
 // Create scheduler (always — API routes need the handle; feature flag only gates hydrate)
@@ -96,6 +100,7 @@ app.use('/api/webhooks', webhooksRouter(db, scheduler));
 
 // MCP Server registry (DB-backed: editable at runtime, env + connection checks)
 app.use('/api/mcp-servers', mcpRouter(db));
+app.use('/api/tickets', ticketsRouter(db));
 
 // Claude proxy endpoint for external apps — requires a scoped API key
 // (was previously open to any caller when ENABLE_SCHEDULER=true).
