@@ -19,6 +19,11 @@ const MAX_INLINE_SKILL_CHARS = 6000;
 // value. Real secrets stay in host env / K8s secrets, never in the DB.
 const PLACEHOLDER_RE = /<[^>]*>|\/path\/to\//;
 
+/**
+ * Strip placeholder values (e.g. `<your-token>`, `/path/to/...`) from an MCP
+ * server env block. Catalog entries ship these as documentation stubs; they
+ * must not reach the runner so the real host environment can supply them.
+ */
 export function sanitizeMcpEnv(env = {}) {
   const out = {};
   for (const [k, v] of Object.entries(env || {})) {
