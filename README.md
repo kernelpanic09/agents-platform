@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/kernelpanic09/agents-platform?include_prereleases&sort=semver)](https://github.com/kernelpanic09/agents-platform/releases)
 [![Last commit](https://img.shields.io/github/last-commit/kernelpanic09/agents-platform)](https://github.com/kernelpanic09/agents-platform/commits)
 
-An AI agent orchestration platform: a roster of agent personas equipped with **skills (the SKILL.md open standard), provisioned MCP tool servers, and episodic memory**, dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE **down to the individual tool call**, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop. Recurring runs fuse into **AI-synthesized Combined Reports with metric trends**, all wrapped in a flat **light/dark dashboard** - with full cost/latency observability and platform SLOs.
+An AI agent orchestration platform: a roster of agent personas equipped with **skills (the SKILL.md open standard), provisioned MCP tool servers, and episodic memory**, dispatched against real infrastructure, composed into conditional DAG pipelines and reusable crews, streamed live over SSE **down to the individual tool call**, governed by tiered safety policies and scoped API keys, and improved over time with prompt versioning, A/B evals, and a promote-to-active loop. Recurring runs fuse into **AI-synthesized Combined Reports with metric trends**. Operational findings surface automatically into a **durable Kanban ticketing board**. All of this is wrapped in a flat **light/dark dashboard** with a dedicated operations control-tower view, persistent SLO history, and full cost/latency observability — including per-agent cost breakdowns.
 
 ![Composing a schedule: agents, execution mode, backend, safety tier, and cadence in one form](docs/screenshots/schedule-form.gif?v=2)
 
@@ -76,10 +76,12 @@ The platform was built in five planned phases (visibility → configurability �
 - A **report group** is a named set of schedules. When member runs finish, a debounced (90s) meeting-framed synthesis dispatch fuses each member's latest successful run into **one structured briefing** - headline, overall verdict, executive summary, per-member sections with findings + metrics, cross-cutting insights, and deduplicated action items - rendered natively at `/reports/:slug`
 - **Deterministic where it matters**: the narrative is LLM-written, but the verdict timelines and source-run provenance come straight from the runs table, never the model
 - **Metric trends** - a metric engine normalizes the values agents emit ("3/3", "84%", "19 days") into numeric series; the Trends tab charts a health score and every metric over time, with an external-collector ingest endpoint for deterministic points
+- **Build history tab** - a History tab on the report detail page lists recent builds with verdict, synthesis duration, errors, and a duration sparkline
+- **One-click ticket promotion** - any action item in a report can be promoted directly into the ticketing board
 - Verdict-colored Discord embed on each rebuild
 
 ### 8. Trust & Governance
-- **Enforced safety tiers** - `read_only` disables the file-mutation tools (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`) at the CLI permission layer, not just in the prompt; the policy preamble remains as defense-in-depth (shell commands stay policy-governed - documented boundary)
+- **Enforced safety tiers** - `read_only` disables the file-mutation tools (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`) at the CLI permission layer, not just in the prompt, on **all dispatch paths including single-agent SSH runs**; the policy preamble remains as defense-in-depth (shell commands stay policy-governed - documented boundary)
 - **Human-in-the-loop approval gate** - `supervised`-tier runs hold in `pending_approval` and notify the operator; nothing dispatches until explicitly approved (or rejected) from the run page
 - **Turn limits** - a hard cap on agentic turns per dispatch (`--max-turns`), settable per schedule or as a platform default; runaway protection that is enforced, not advisory
 - **Structured run verdicts** - every agent must end with `STATUS: ok|attention|critical`; the parsed verdict is stored per run, surfaced as severity badges, and available to pipeline routing (`verdict === 'critical'`)
@@ -111,7 +113,9 @@ The platform was built in five planned phases (visibility → configurability �
 ### 13. Observability, SLOs, and Cost
 - Telemetry for **both backends**: API calls and SSH runs (token usage parsed from `claude`'s JSON output) - every run lands in the cost dashboard
 - **"Savings vs API" view** - subscription runs cost $0 but are metered at notional API prices, so the dashboard shows exactly what the SSH design saves
+- **Per-agent cost breakdown** - a horizontal bar chart of spend by agent with a by-agent / by-model toggle, alongside the existing model-distribution and daily-trend views
 - **Platform SLOs** - success rate, p95 run latency, and daily cost vs live-configurable targets, with green/warning/breach status and Discord alerting on transition into breach
+- **Persistent SLO history** - every SLO check is written to `slo_history` and charted as a reliability burn-down over time; breach-alert state survives restarts
 - Recharts dashboard: daily cost trends, model distribution, latency percentiles, recent traces
 
 ### 14. Evaluation & Self-Improvement
@@ -123,6 +127,18 @@ The platform was built in five planned phases (visibility → configurability �
 ### 15. Portability: Agent Packs & MCP Registry
 - **Agent-pack YAML import/export** - versioned packs of agents, crews, schedules, and pipelines; cross-references travel by agent *name*, so a pack moves cleanly between deployments
 - **DB-backed MCP registry** - the integration catalog is editable at runtime (add/edit/delete servers, no redeploy), with per-server env-var validation badges and a remote connection test; registry entries are what [MCP provisioning](#3-mcp-tool-provisioning) resolves at dispatch
+
+### 16. Platform Operations Dashboard
+- A single `/dashboard` control-tower view composing existing signals: a **hero KPI strip** (running / queued / pending-approval / failed-today / 7-day cost), a **run-volume feature chart**, a **schedule-health matrix** showing each schedule's recent verdict history at a glance, a **per-agent cost leaderboard**, an **SLO glance** tile, and an **open-tickets tile** - everything an operator needs to assess platform health without opening six tabs
+
+### 17. Kanban Ticketing
+- A durable **single global board** at `/tickets` - the operational work-tracking layer that closes the loop between what agents find and what gets acted on
+- **Three views** - Table (sortable/filterable), Kanban (drag-and-drop columns), and Gantt (timeline by estimated delivery date) - same data, appropriate lens for the task
+- **Automatic ticket creation**: any run or pipeline that ends with a `CRITICAL` verdict auto-opens a ticket with provenance (linked run, schedule, agents, timestamp); **idempotent** - a recurring finding bumps the existing open ticket rather than duplicating
+- **One-click promotion from Combined Report action items** - surface an action item in a report and promote it to a tracked ticket without leaving the page
+- **Manual and agent-filed tickets** - file manually from the board or from a run, or have an agent file via a `write`-scoped API key
+- Tickets carry status (`backlog → triaged → in_progress → in_review → done`), priority, size, type, labels, assignee, full source provenance, and an **append-only activity log** (every status change, comment, and auto-update recorded)
+- Keys follow the `TIX-N` scheme
 
 ---
 
@@ -229,15 +245,17 @@ Express.js (port 3001)
     |-- /api/mcp-servers   DB-backed MCP registry + env/connection checks
     |-- /api/rag           RAG ingest + query
     |-- /api/workflows     LangGraph routing
-    |-- /api/observability Telemetry, costs, SLOs
+    |-- /api/observability Telemetry, costs, SLOs, per-agent breakdown, SLO history
     |-- /api/eval          Evaluation suites + A/B testing
+    |-- /api/tickets       Kanban ticketing (create / update / query board)
     |
     |-- SQLite (better-sqlite3, WAL)
     |       agents, skills + agent_skills, agent_memories, variables,
     |       schedules, runs (durable queue, provisioning audit),
     |       pipelines, crews, traces (step timelines), eval suites/runs,
     |       report_groups + report_builds + report_metric_points,
-    |       prompt_versions, api_keys, platform_settings, mcp_servers
+    |       prompt_versions, api_keys, platform_settings, mcp_servers,
+    |       tickets (global board, activity log), slo_history
     |
     |-- LangGraph
     |       Task router (Haiku) --> RAG chain | Workflow graph | SSH dispatch
@@ -492,8 +510,22 @@ Both backends return identical run records, and `api`-backend runs are metered i
 |--------|------|-------------|
 | `GET` | `/api/observability/traces` | Recent telemetry traces (API + SSH sources) |
 | `GET` | `/api/observability/costs` | Aggregated cost stats incl. "savings vs API" |
+| `GET` | `/api/observability/costs/by-agent` | Cost breakdown by agent (horizontal bar; toggle by-model) |
 | `GET` | `/api/observability/latency` | Latency percentiles per model |
 | `GET` | `/api/observability/slo` | Platform SLOs vs targets (ok / warn / breach) |
+| `GET` | `/api/observability/slo/history` | Persisted SLO check history for burn-down chart |
+
+### Tickets
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/tickets` | List tickets (filterable by status, priority, type, label) |
+| `POST` | `/api/tickets` | Create a ticket (manual, agent-filed, or auto from a run) |
+| `GET` | `/api/tickets/:id` | Ticket detail with full activity log |
+| `PUT` | `/api/tickets/:id` | Update ticket (status, priority, assignee, labels, …) |
+| `DELETE` | `/api/tickets/:id` | Delete ticket |
+| `POST` | `/api/tickets/:id/activity` | Append an activity entry (comment, status change) |
+| `POST` | `/api/tickets/from-run/:runId` | Auto-open or bump a ticket from a run verdict |
+| `POST` | `/api/tickets/from-action-item` | Promote a Combined Report action item to a ticket |
 
 ### Evaluation
 | Method | Path | Description |
@@ -584,8 +616,10 @@ agents-platform/
 │   └── pages/                  # Home, AgentProfile (inference + prompt history + skills + memory),
 │                               # Compose, Schedules, ScheduleDetail, Runs, RunDetail (live SSE + steps),
 │                               # Pipelines, PipelineDetail (builder + live overlay), Crews, Skills,
-│                               # Reports, ReportDetail (briefing + trends), RagPlayground, Workflows,
-│                               # Observability (SLOs), Eval (A/B), Settings (hub + keys + MCP + packs)
+│                               # Reports, ReportDetail (briefing + trends + build history), RagPlayground,
+│                               # Workflows, Observability (SLOs + per-agent cost + SLO history),
+│                               # Eval (A/B), Settings (hub + keys + MCP + packs),
+│                               # Dashboard (ops control tower), Tickets (table/kanban/gantt)
 │
 └── test/                       # 18 files, 134 cases (node:test):
     ├── pipeline.test.js        #   DAG validation, sandboxed conditions, LangGraph routing

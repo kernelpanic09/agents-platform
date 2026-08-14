@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Kanban ticketing** (`/tickets`): a durable, single global board for tracking
+  operational work items — surfaced as Table, Kanban, and Gantt views with native
+  drag-and-drop. Tickets carry status (`backlog → triaged → in_progress → in_review →
+  done`), priority, size, type, labels, assignee, full provenance, and an append-only
+  activity log. Auto-opened on any `CRITICAL` run or pipeline verdict (idempotent —
+  recurring findings bump an existing open ticket, not duplicate it); promoted from a
+  Combined Report action-item in one click; filed manually; or filed by an agent via a
+  `write`-scoped API key. Keys follow the `TIX-N` scheme.
+- **Platform operations dashboard** (`/dashboard`): a control-tower view composing
+  existing signals — a hero KPI strip (running / queued / pending-approval /
+  failed-today / 7-day cost), a run-volume feature chart, a schedule-health matrix, a
+  per-agent cost leaderboard, an SLO glance, and an open-tickets tile.
+- **Per-agent cost breakdown**: the Observability page now renders a horizontal bar chart
+  of cost by agent, with a by-agent / by-model toggle.
+- **Persistent SLO history and burn-down chart**: SLO checks are now written to a
+  `slo_history` table and charted as a reliability burn-down over time; breach-alert
+  state survives restarts.
+- **Report build-history tab**: the Report detail page gains a History tab listing recent
+  builds — verdict, synthesis duration, errors, and a duration sparkline per build.
+
+### Fixed
+- **Safety-tier enforcement on single-agent SSH runs**: the `read_only` tier's
+  file-mutation tool restrictions (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`) are now
+  correctly applied to single-agent runs; previously the restriction was enforced only on
+  multi-agent paths.
+
 ### Changed
 - Documentation grooming: corrected the local test-suite count and tightened the
   Development quick start.
