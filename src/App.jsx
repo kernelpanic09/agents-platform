@@ -24,6 +24,7 @@ const ReportDetailPage = lazy(() => import('./pages/ReportDetailPage'));
 const ObservabilityPage = lazy(() => import('./pages/ObservabilityPage'));
 const EvalPage = lazy(() => import('./pages/EvalPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const TicketsPage = lazy(() => import('./pages/TicketsPage'));
 
 const SuspenseLoader = (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -114,6 +115,14 @@ export default function App() {
               <Route
                 path="/settings"
                 element={<Suspense fallback={SuspenseLoader}><SettingsPage /></Suspense>}
+              />
+              <Route
+                path="/tickets"
+                element={<Suspense fallback={SuspenseLoader}><TicketsPage /></Suspense>}
+              />
+              <Route
+                path="/tickets/:id"
+                element={<Suspense fallback={SuspenseLoader}><TicketsPage /></Suspense>}
               />
             </Routes>
           </ErrorBoundary>

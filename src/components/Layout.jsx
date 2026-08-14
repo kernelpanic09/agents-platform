@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Bot, Calendar, Home, History, Database, GitBranch, Waypoints,
   Users, Activity, FlaskConical, Settings, Wand2, Newspaper, Menu, X,
-  PanelLeftClose, PanelLeftOpen, Sun, Moon, Variable,
+  PanelLeftClose, PanelLeftOpen, Sun, Moon, Variable, KanbanSquare,
 } from 'lucide-react';
 
 // Grouped left-nav. Monitor first (Reports/Schedules/Runs), then authoring (Build)
@@ -15,6 +15,7 @@ const GROUPS = [
       { to: '/reports', label: 'Reports', icon: Newspaper, match: (p) => p === '/reports' || p.startsWith('/reports/') },
       { to: '/schedules', label: 'Schedules', icon: Calendar, match: (p) => p === '/schedules' || p.startsWith('/schedules/') },
       { to: '/runs', label: 'Runs', icon: History, match: (p) => p === '/runs' },
+      { to: '/tickets', label: 'Tickets', icon: KanbanSquare, match: (p) => p === '/tickets' || p.startsWith('/tickets/') },
     ],
   },
   {
