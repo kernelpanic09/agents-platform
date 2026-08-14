@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, LineChart, Line } from 'recharts';
 import ReportTrends from './ReportTrends';
-import { RefreshCw, Loader2, Lightbulb, CheckSquare, ArrowLeft, AlertTriangle, Terminal, ChevronRight, History } from 'lucide-react';
+import { RefreshCw, Loader2, Lightbulb, CheckSquare, ArrowLeft, AlertTriangle, Terminal, ChevronRight, History, Ticket } from 'lucide-react';
+import { promoteActionItem } from '../lib/ticketsApi';
 import VerdictBadge from '../components/VerdictBadge';
 import AgentAvatar from '../components/AgentAvatar';
 import { timeAgo } from './ReportsPage';
@@ -466,8 +467,22 @@ export default function ReportDetailPage() {
                         {actions.map((a, i) => (
                           <li key={i} className="flex items-center gap-2 text-[13px] py-1 border-b border-white/5 last:border-0">
                             <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium uppercase shrink-0 ${PRIORITY_CLS[a.priority]}`}>{a.priority}</span>
-                            <span className="text-zinc-200">{a.title}</span>
-                            {a.owner && <span className="text-xs text-zinc-500 ml-auto shrink-0">{a.owner}</span>}
+                            <span className="text-zinc-200 flex-1 min-w-0 truncate">{a.title}</span>
+                            {a.owner && <span className="text-xs text-zinc-500 shrink-0">{a.owner}</span>}
+                            {a.key && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const ticket = await promoteActionItem(slug, a.key);
+                                    window.open(`/tickets/${ticket.id}`, '_blank');
+                                  } catch { /* ignore */ }
+                                }}
+                                title="Promote to ticket"
+                                className="shrink-0 p-1 text-zinc-600 hover:text-accent-300 transition-colors"
+                              >
+                                <Ticket size={12} />
+                              </button>
+                            )}
                           </li>
                         ))}
                       </ul>

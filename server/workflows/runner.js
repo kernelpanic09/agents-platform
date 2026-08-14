@@ -8,6 +8,7 @@ import { agentDispatchContext, meetingDispatchContext, hasProvisioning } from '.
 import { distillRunMemories } from '../memory.js';
 import { substitute } from '../variables.js';
 import { onRunFinished as reportsOnRunFinished } from '../reports.js';
+import { openTicketFromFinding } from '../tickets.js';
 import { IS_DEMO } from '../demo.js';
 import { simulateRun } from '../demo-sim.js';
 
@@ -194,6 +195,18 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
       `An agent reported STATUS: critical.\n${(summary || '').slice(0, 400)}\nView: ${APP_BASE_URL}/schedules/runs/${runId}`,
       15158332,
     ).catch(() => {});
+    // Auto-open (idempotent) a ticket for critical findings
+    try {
+      openTicketFromFinding(db, {
+        title: `CRITICAL: ${schedule.name}`,
+        description: (summary || '').slice(0, 2000),
+        priority: 'critical',
+        type: 'finding',
+        source_type: 'critical_verdict',
+        source_ref: { run_id: runId, schedule_id: schedule.id },
+        dedup_key: `verdict:${schedule.id}`,
+      });
+    } catch { /* never break the run path */ }
   }
 
   // Episodic memory: distill durable learnings from this run's outputs.

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import VerdictBadge from '../components/VerdictBadge';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, XCircle, Loader, Clock, RotateCw, FileText, Users, Code, ListTree } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Loader, Clock, RotateCw, FileText, Users, Code, ListTree, KanbanSquare } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
 import StepTimeline from '../components/StepTimeline';
 
@@ -181,6 +181,11 @@ export default function RunDetailPage() {
             </div>
             <div className="text-sm text-zinc-400 flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
               <span className="inline-flex items-center gap-2">Status: <span className="text-white">{run.status}</span> <VerdictBadge verdict={run.verdict} /></span>
+              {run.verdict === 'critical' && (
+                <Link to="/tickets" className="inline-flex items-center gap-1 text-[12px] px-2 py-0.5 rounded border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors">
+                  <KanbanSquare size={11} /> View tickets
+                </Link>
+              )}
               <span>Duration: {formatDuration(run.duration_ms)}</span>
               <span>Started: {run.started_at ? new Date(run.started_at).toLocaleString() : '—'}</span>
               <span>Finished: {run.finished_at ? new Date(run.finished_at).toLocaleString() : '—'}</span>

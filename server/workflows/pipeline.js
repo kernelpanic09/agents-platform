@@ -5,6 +5,7 @@ import { emitRunEvent } from '../run-stream.js';
 import { getSetting } from '../settings.js';
 import { agentDispatchContext } from '../dispatch-context.js';
 import { IS_DEMO } from '../demo.js';
+import { openTicketFromFinding } from '../tickets.js';
 
 // ---------------------------------------------------------------------------
 // Pure helpers (no LLM, no DB) — unit-testable in isolation.
@@ -245,6 +246,18 @@ export async function executePipelineRun({ db, pipeline, task, pipelineRunId }) 
       `Node(s) reported STATUS: critical: ${criticalNodes.join(', ')}.\n${summary.slice(0, 300)}`,
       15158332,
     ).catch(() => {});
+    // Auto-open (idempotent) a ticket for critical pipeline findings
+    try {
+      openTicketFromFinding(db, {
+        title: `CRITICAL: pipeline ${pipeline.name}`,
+        description: `Node(s) with critical verdict: ${criticalNodes.join(', ')}.\n${summary.slice(0, 2000)}`,
+        priority: 'critical',
+        type: 'finding',
+        source_type: 'critical_verdict',
+        source_ref: { pipeline_id: pipeline.id },
+        dedup_key: `pipeline-verdict:${pipeline.id}`,
+      });
+    } catch { /* never break the pipeline run path */ }
   }
 
   return { status, pipelineRunId };
