@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, LineChart, Line } from 'recharts';
 import ReportTrends from './ReportTrends';
-import { RefreshCw, Loader2, Lightbulb, CheckSquare, ArrowLeft, AlertTriangle, Terminal, ChevronRight } from 'lucide-react';
+import { RefreshCw, Loader2, Lightbulb, CheckSquare, ArrowLeft, AlertTriangle, Terminal, ChevronRight, History } from 'lucide-react';
 import VerdictBadge from '../components/VerdictBadge';
 import AgentAvatar from '../components/AgentAvatar';
 import { timeAgo } from './ReportsPage';
@@ -161,6 +161,91 @@ function MemberPane({ s, member, agents, src, seriesByKey = {}, slug }) {
   );
 }
 
+function HistoryPane({ history, historyLoading }) {
+  if (historyLoading || history === null) {
+    return (
+      <Pane title="Build history">
+        <div className="flex items-center justify-center py-10">
+          <div className="w-6 h-6 border-2 border-zinc-700 border-t-teal-400 rounded-full animate-spin" />
+        </div>
+      </Pane>
+    );
+  }
+  if (history.length === 0) {
+    return (
+      <Pane title="Build history">
+        <p className="text-zinc-500 text-sm py-6 text-center">No build history yet.</p>
+      </Pane>
+    );
+  }
+
+  const chartData = history.slice().reverse().map(b => ({
+    t: new Date(b.created_at).getTime(),
+    v: b.status === 'success' && b.duration_ms ? Math.round(b.duration_ms / 1000) : null,
+  }));
+
+  return (
+    <div className="space-y-3">
+      <Pane title="Synthesis duration (last 30 builds)">
+        {chartData.some(d => d.v != null) ? (
+          <div className="h-24 mt-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <Line type="monotone" dataKey="v" stroke={VERDICT_HEX.ok || '#22c55e'} strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="text-zinc-600 text-xs py-4 text-center">No successful builds to chart.</p>
+        )}
+      </Pane>
+
+      <Pane title="Build history">
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead>
+              <tr className="text-left text-zinc-500 text-[10.5px] uppercase tracking-wider border-b border-white/5">
+                <th className="pb-2 pr-4 font-semibold">Time</th>
+                <th className="pb-2 pr-4 font-semibold">Verdict</th>
+                <th className="pb-2 pr-4 font-semibold">Duration</th>
+                <th className="pb-2 font-semibold">Error</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {history.map(b => {
+                const vcolor = VERDICT_HEX[b.overall_verdict];
+                const durationSec = b.duration_ms != null ? `${Math.round(b.duration_ms / 1000)}s` : '—';
+                return (
+                  <tr key={b.id} className="group">
+                    <td className="py-2 pr-4 text-zinc-400 whitespace-nowrap font-mono">{timeAgo(b.created_at)}</td>
+                    <td className="py-2 pr-4 whitespace-nowrap">
+                      {b.status === 'failed' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border bg-red-500/10 text-red-400 border-red-500/25">failed</span>
+                      ) : b.overall_verdict ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border"
+                          style={{ color: vcolor, borderColor: `${vcolor}40`, background: `${vcolor}14` }}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: vcolor }} />
+                          {b.overall_verdict}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-400 font-mono whitespace-nowrap">{durationSec}</td>
+                    <td className="py-2 text-zinc-500 text-[11.5px] max-w-[22rem] truncate" title={b.error_message || ''}>
+                      {b.status === 'failed' && b.error_message ? b.error_message.slice(0, 120) : ''}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Pane>
+    </div>
+  );
+}
+
 // ---------- page ----------
 
 export default function ReportDetailPage() {
@@ -171,12 +256,26 @@ export default function ReportDetailPage() {
   const buildingRef = useRef(false);
 
   const [sp, setSp] = useSearchParams();
-  const tab = sp.get('tab') === 'trends' ? 'trends' : 'briefing';
+  const VALID_TABS = ['briefing', 'trends', 'history'];
+  const rawTab = sp.get('tab');
+  const tab = VALID_TABS.includes(rawTab) ? rawTab : 'briefing';
   const setTab = (t) => setSp(prev => {
     const n = new URLSearchParams(prev);
-    if (t === 'trends') n.set('tab', 'trends'); else n.delete('tab');
+    if (t && t !== 'briefing') n.set('tab', t); else n.delete('tab');
     return n;
   }, { replace: true });
+
+  const [history, setHistory] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  useEffect(() => {
+    if (tab !== 'history' || history !== null) return;
+    setHistoryLoading(true);
+    fetch(`/api/reports/${slug}/history`)
+      .then(r => r.json())
+      .then(rows => { setHistory(rows); })
+      .catch(() => { setHistory([]); })
+      .finally(() => setHistoryLoading(false));
+  }, [tab, slug, history]);
 
   const [metrics, setMetrics] = useState(null);
   const [range, setRange] = useState(30);
@@ -296,7 +395,7 @@ export default function ReportDetailPage() {
       ) : (
         <>
           <div className="flex items-center gap-1 border-b border-white/5">
-            {[['briefing', 'Briefing'], ['trends', 'Trends']].map(([t, lbl]) => (
+            {[['briefing', 'Briefing'], ['trends', 'Trends'], ['history', 'History']].map(([t, lbl]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === t ? 'border-teal-400 text-teal-300' : 'border-transparent text-zinc-500 hover:text-zinc-200'}`}>
                 {lbl}
@@ -306,6 +405,8 @@ export default function ReportDetailPage() {
 
           {tab === 'trends' ? (
             <ReportTrends data={data} metrics={metrics} range={range} setRange={setRange} />
+          ) : tab === 'history' ? (
+            <HistoryPane history={history} historyLoading={historyLoading} />
           ) : (
             <>
               {/* Stat strip */}
