@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Activity, DollarSign, Clock, Zap, ShieldCheck, Target } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
 
 const COLORS = ['#E0A82E', '#2FA39A', '#C2603C', '#7E8C3F', '#B4451F', '#9A6B3C'];
 
@@ -57,16 +57,22 @@ export default function ObservabilityPage() {
   const [latency, setLatency] = useState(null);
   const [traces, setTraces] = useState([]);
   const [slo, setSlo] = useState(null);
+  const [sloHistory, setSloHistory] = useState([]);
   const [days, setDays] = useState(30);
+  const [costView, setCostView] = useState('agent');
 
   useEffect(() => {
     fetch(`/api/observability/costs?days=${days}`).then(r => r.json()).then(setCosts).catch(() => {});
     fetch(`/api/observability/latency?days=${days}`).then(r => r.json()).then(setLatency).catch(() => {});
     fetch('/api/observability/traces?limit=20').then(r => r.json()).then(setTraces).catch(() => {});
+    fetch(`/api/observability/slo/history?days=${days}`).then(r => r.json()).then(setSloHistory).catch(() => {});
   }, [days]);
 
   useEffect(() => {
-    fetch('/api/observability/slo').then(r => r.json()).then(setSlo).catch(() => {});
+    const fetchSlo = () => fetch('/api/observability/slo').then(r => r.json()).then(setSlo).catch(() => {});
+    fetchSlo();
+    const interval = setInterval(fetchSlo, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -88,6 +94,52 @@ export default function ObservabilityPage() {
 
       {/* Platform SLOs */}
       <SloPanel slo={slo} />
+
+      {/* SLO reliability history burn-down */}
+      <div className="mb-6 p-4 rounded-xl glass border border-white/10">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldCheck size={14} className="text-violet-400" />
+          <h2 className="text-sm font-medium text-zinc-200">Reliability History</h2>
+          <span className="text-xs text-zinc-600 ml-auto">success rate · {days}d</span>
+        </div>
+        {sloHistory.length > 0 ? (
+          <ResponsiveContainer width="100%" height={120}>
+            <LineChart data={sloHistory} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <XAxis
+                dataKey="checked_at"
+                tick={{ fill: '#71717a', fontSize: 9 }}
+                tickFormatter={v => v ? v.slice(5, 16).replace('T', ' ') : ''}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                domain={[0, 1]}
+                tick={{ fill: '#71717a', fontSize: 9 }}
+                tickFormatter={v => `${Math.round(v * 100)}%`}
+                width={36}
+              />
+              <Tooltip
+                contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8 }}
+                labelStyle={{ color: '#a1a1aa', fontSize: 10 }}
+                labelFormatter={v => v ? v.slice(0, 16).replace('T', ' ') : v}
+                formatter={v => v != null ? [`${(v * 100).toFixed(0)}%`, 'Success rate'] : ['—', 'Success rate']}
+              />
+              <ReferenceLine y={0.95} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth={1} />
+              <Line
+                type="monotone"
+                dataKey="success_rate"
+                stroke="#22c55e"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="text-zinc-600 text-sm py-8 text-center">
+            Collecting… samples appear after the first 15-min SLO tick.
+          </div>
+        )}
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-4 gap-3 mb-6">
@@ -153,30 +205,62 @@ export default function ObservabilityPage() {
           ) : <div className="text-zinc-600 text-sm py-12 text-center">No data yet</div>}
         </div>
 
-        {/* Model distribution */}
+        {/* Cost by agent / by model — toggleable */}
         <div className="p-4 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <h3 className="text-sm font-medium text-zinc-300 mb-3">Cost by Model</h3>
-          {costs?.byModel?.length > 0 ? (
-            <div className="flex items-center gap-4">
-              <ResponsiveContainer width="50%" height={200}>
-                <PieChart>
-                  <Pie data={costs.byModel} dataKey="cost" nameKey="model" cx="50%" cy="50%" outerRadius={70} strokeWidth={0}>
-                    {costs.byModel.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8 }} formatter={v => `$${v.toFixed(4)}`} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-2">
-                {costs.byModel.map((m, i) => (
-                  <div key={m.model} className="flex items-center gap-2 text-xs">
-                    <div className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
-                    <span className="text-zinc-400">{m.model}</span>
-                    <span className="text-zinc-600">{m.calls} calls</span>
-                  </div>
-                ))}
-              </div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-zinc-300">
+              {costView === 'agent' ? 'Cost by Agent' : 'Cost by Model'}
+            </h3>
+            <div className="flex rounded overflow-hidden border border-zinc-700 text-xs">
+              <button
+                onClick={() => setCostView('agent')}
+                className={`px-2 py-0.5 ${costView === 'agent' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >by agent</button>
+              <button
+                onClick={() => setCostView('model')}
+                className={`px-2 py-0.5 ${costView === 'model' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >by model</button>
             </div>
-          ) : <div className="text-zinc-600 text-sm py-12 text-center">No data yet</div>}
+          </div>
+          {costView === 'agent' ? (
+            costs?.byAgent?.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart layout="vertical" data={costs.byAgent} margin={{ left: 8, right: 12 }}>
+                  <XAxis type="number" tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={v => `$${v.toFixed(3)}`} />
+                  <YAxis type="category" dataKey="agent_name" tick={{ fill: '#a1a1aa', fontSize: 10 }} width={72} />
+                  <Tooltip
+                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8 }}
+                    formatter={(v, _name, props) => [`$${Number(v).toFixed(4)} · ${props.payload.calls} calls`, 'Cost']}
+                  />
+                  <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
+                    {costs.byAgent.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div className="text-zinc-600 text-sm py-12 text-center">No data yet</div>
+          ) : (
+            costs?.byModel?.length > 0 ? (
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width="50%" height={200}>
+                  <PieChart>
+                    <Pie data={costs.byModel} dataKey="cost" nameKey="model" cx="50%" cy="50%" outerRadius={70} strokeWidth={0}>
+                      {costs.byModel.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8 }} formatter={v => `$${v.toFixed(4)}`} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-2">
+                  {costs.byModel.map((m, i) => (
+                    <div key={m.model} className="flex items-center gap-2 text-xs">
+                      <div className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
+                      <span className="text-zinc-400">{m.model}</span>
+                      <span className="text-zinc-600">{m.calls} calls</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : <div className="text-zinc-600 text-sm py-12 text-center">No data yet</div>
+          )}
         </div>
       </div>
 
