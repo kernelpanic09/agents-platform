@@ -4,6 +4,7 @@ import {
   Bot, Calendar, Home, History, Database, GitBranch, Waypoints,
   Users, Activity, FlaskConical, Settings, Wand2, Newspaper, Menu, X,
   PanelLeftClose, PanelLeftOpen, Sun, Moon, Variable, KanbanSquare,
+  LayoutDashboard,
 } from 'lucide-react';
 
 // Grouped left-nav. Monitor first (Reports/Schedules/Runs), then authoring (Build)
@@ -12,6 +13,7 @@ const GROUPS = [
   {
     label: 'Monitor',
     items: [
+      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, match: (p) => p === '/dashboard' },
       { to: '/reports', label: 'Reports', icon: Newspaper, match: (p) => p === '/reports' || p.startsWith('/reports/') },
       { to: '/schedules', label: 'Schedules', icon: Calendar, match: (p) => p === '/schedules' || p.startsWith('/schedules/') },
       { to: '/runs', label: 'Runs', icon: History, match: (p) => p === '/runs' },

@@ -5,6 +5,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
 import { SelectionProvider } from './context/SelectionContext';
 
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const AgentProfile = lazy(() => import('./pages/AgentProfile'));
 const AgencyAgentProfile = lazy(() => import('./pages/AgencyAgentProfile'));
 const ComposePage = lazy(() => import('./pages/ComposePage'));
@@ -40,6 +41,10 @@ export default function App() {
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route
+                path="/dashboard"
+                element={<Suspense fallback={SuspenseLoader}><DashboardPage /></Suspense>}
+              />
               <Route
                 path="/agent/:id"
                 element={<Suspense fallback={SuspenseLoader}><AgentProfile /></Suspense>}

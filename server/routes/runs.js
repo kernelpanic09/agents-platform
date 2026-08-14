@@ -36,6 +36,42 @@ export default function runsRouter(db, scheduler) {
       AND (@schedule_id IS NULL OR r.schedule_id = @schedule_id)
   `);
 
+  // GET /api/runs/summary — queue health at a glance (byStatus counts + perHour last 24h).
+  // Global only — no project scoping. MUST be registered before /:id so "summary" is not
+  // captured as an id param.
+  router.get('/summary', (req, res) => {
+    const statuses = ['queued', 'running', 'pending_approval', 'failed', 'success', 'timeout', 'rejected'];
+    const byStatus = {};
+    for (const st of statuses) {
+      const row = db.prepare(`SELECT COUNT(*) AS c FROM runs WHERE status = ?`).get(st);
+      byStatus[st] = row.c;
+    }
+
+    // Per-hour buckets for the last 24 hours (hour 0 = oldest, hour 23 = most recent)
+    const rows = db.prepare(`
+      SELECT
+        CAST(((strftime('%s','now') - strftime('%s', created_at)) / 3600) AS INTEGER) AS hours_ago,
+        COUNT(*) AS c
+      FROM runs
+      WHERE created_at >= datetime('now', '-24 hours')
+      GROUP BY hours_ago
+    `).all();
+
+    // Build a 24-slot array (hour labels relative to now, slot 0 = 23h ago)
+    const buckets = new Array(24).fill(0);
+    for (const r of rows) {
+      const slot = 23 - Math.min(r.hours_ago, 23);
+      if (slot >= 0) buckets[slot] += r.c;
+    }
+    const now = new Date();
+    const perHour = buckets.map((c, i) => {
+      const h = new Date(now.getTime() - (23 - i) * 3600 * 1000);
+      return { hour: `${String(h.getUTCHours()).padStart(2, '0')}:00`, c };
+    });
+
+    res.json({ byStatus, perHour });
+  });
+
   // GET /api/runs?status=...&schedule_id=...&limit=50&offset=0
   router.get('/', (req, res) => {
     const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
