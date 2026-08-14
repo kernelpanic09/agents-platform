@@ -81,8 +81,12 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
       const inf = resolveInference(agent, runOpts);
       const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
       recordProvision(agent.name, ctx);
+      const isSsh = route !== 'rag' && route !== 'workflow';
+      const taskPayload = isSsh
+        ? buildAgentPrompt(agent, substitute(schedule.task_prompt, ctx.vars || {}), null, tier, ctx)
+        : substitute(schedule.task_prompt, ctx.vars || {});
       const result = await graph.invoke({
-        task: substitute(schedule.task_prompt, ctx.vars || {}),
+        task: taskPayload,
         agentId: agent.id,
         agentName: agent.name,
         mode: schedule.mode,
@@ -93,6 +97,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
         mcpConfig: ctx.mcpConfig,
         skills: ctx.skills,
         routeDecision: route,
+        tier,
       });
 
       summary = result.summary || '';

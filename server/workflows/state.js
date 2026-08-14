@@ -19,4 +19,5 @@ export const AgentState = Annotation.Root({
   summary: Annotation({ reducer: (_, v) => v, default: () => '' }),
   steps: Annotation({ reducer: (prev, v) => [...prev, v], default: () => [] }),
   error: Annotation({ reducer: (_, v) => v, default: () => null }),
+  tier: Annotation({ reducer: (_, v) => v, default: () => 'read_only' }),
 });

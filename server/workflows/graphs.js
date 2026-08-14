@@ -2,7 +2,7 @@ import { StateGraph } from '@langchain/langgraph';
 import { chatComplete, auxTraceSource } from '../llm.js';
 import { AgentState } from './state.js';
 import { ragSearch } from '../rag/chat.js';
-import { runClaude, extractSummary, parseClaudeJson } from '../executor.js';
+import { runClaude, extractSummary, parseClaudeJson, resultText } from '../executor.js';
 import { recordTrace } from '../observability/telemetry.js';
 import { emitRunEvent } from '../run-stream.js';
 
@@ -57,6 +57,7 @@ async function sshDispatchNode(state) {
     state.messages.length > 0 ? state.messages[state.messages.length - 1] : state.task,
     {
       cwd: state.cwd, model: state.model, backend: state.backend, runId: state.runId, agentId: state.agentId, mcpConfig: state.mcpConfig, skills: state.skills,
+      tier: state.tier,
       onStreamEvent: state.runId != null ? (step) => emitRunEvent(state.runId, { type: 'step', agent: state.agentName, step }) : null,
     }
   );
@@ -79,9 +80,10 @@ async function sshDispatchNode(state) {
   }
 
   const parsed = parseClaudeJson(stdout);
-  const summary = extractSummary(parsed.result);
+  const text = resultText(parsed, stdout);
+  const summary = extractSummary(text);
   return {
-    result: parsed.result || stdout,
+    result: text,
     summary,
     steps: { name: 'ssh_dispatch', status: 'done' },
   };
