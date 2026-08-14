@@ -1,12 +1,18 @@
 import { Router } from 'express';
 import { getTraces, getCostSummary, getLatencyStats } from '../observability/telemetry.js';
-import { computeSlo } from '../observability/slo.js';
+import { computeSlo, ensureSloHistory, getSloHistory } from '../observability/slo.js';
 
 export default function observabilityRouter(db) {
   const router = Router();
 
   router.get('/slo', (req, res) => {
     res.json(computeSlo(db));
+  });
+
+  router.get('/slo/history', (req, res) => {
+    ensureSloHistory(db);
+    const days = Math.min(parseInt(req.query.days || '30', 10), 90);
+    res.json(getSloHistory(db, days));
   });
 
   router.get('/traces', (req, res) => {

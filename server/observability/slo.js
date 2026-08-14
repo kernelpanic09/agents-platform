@@ -52,22 +52,77 @@ export function computeSlo(db) {
   return { window_days: WINDOW_DAYS, sample_size: total, metrics: { successRate, p95LatencyMs, dailyCostUsd }, targets, status, overall };
 }
 
+// Metrics that can raise a Discord alert. Cost is intentionally excluded: we run on a
+// flat-rate subscription, so daily cost is notional — it is still computed/collected in
+// computeSlo() for the dashboard, but it must never trigger an alert.
+const ALERTING_METRICS = ['successRate', 'p95LatencyMs'];
+
+/** Pure: decide whether an SLO state warrants a Discord alert and build the alert lines.
+ *  Returns { overall, lines } where `overall` is the worst status across ALERTING_METRICS. */
+export function sloAlert(slo) {
+  const m = slo.metrics, t = slo.targets;
+  const overall = ALERTING_METRICS.reduce((acc, k) => (RANK[slo.status[k]] > RANK[acc] ? slo.status[k] : acc), 'ok');
+  const lines = [];
+  if (slo.status.successRate === 'breach') lines.push(`success rate ${(m.successRate * 100).toFixed(0)}% < ${(t.successRate * 100).toFixed(0)}%`);
+  if (slo.status.p95LatencyMs === 'breach') lines.push(`p95 latency ${Math.round(m.p95LatencyMs / 1000)}s > ${Math.round(t.p95LatencyMs / 1000)}s`);
+  return { overall, lines };
+}
+
+/** Ensure the slo_history table + index exist (idempotent). */
+export function ensureSloHistory(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS slo_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      checked_at TEXT NOT NULL DEFAULT (datetime('now')),
+      success_rate REAL,
+      p95_latency_ms INTEGER,
+      daily_cost_usd REAL,
+      overall TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_slo_history_checked ON slo_history(checked_at);
+  `);
+}
+
+/** Insert a sample row and prune rows older than 90 days. */
+export function recordSloSample(db, slo) {
+  const m = slo.metrics || {};
+  db.prepare(`INSERT INTO slo_history (success_rate, p95_latency_ms, daily_cost_usd, overall) VALUES (?,?,?,?)`)
+    .run(m.successRate ?? null, m.p95LatencyMs ?? null, m.dailyCostUsd ?? null, slo.overall || null);
+  db.prepare(`DELETE FROM slo_history WHERE checked_at < datetime('now','-90 days')`).run();
+}
+
+/** Return rows within the window, ordered by checked_at ascending. */
+export function getSloHistory(db, days = 30) {
+  return db.prepare(`SELECT * FROM slo_history WHERE checked_at >= datetime('now', ?) ORDER BY checked_at`)
+    .all(`-${days} days`);
+}
+
 let _lastOverall = null;
 
-/** Compute SLOs and alert to Discord when overall status transitions INTO breach. */
+/** Compute SLOs and alert to Discord when an alertable SLO transitions INTO breach.
+ *  Cost breaches never alert (flat subscription); cost data is still collected by computeSlo(). */
 export function checkSloBreach(db) {
   try {
+    ensureSloHistory(db);
     const slo = computeSlo(db);
-    if (slo.overall === 'breach' && _lastOverall !== 'breach') {
-      const m = slo.metrics, t = slo.targets;
-      const lines = [];
-      if (slo.status.successRate === 'breach') lines.push(`success rate ${(m.successRate * 100).toFixed(0)}% < ${(t.successRate * 100).toFixed(0)}%`);
-      if (slo.status.p95LatencyMs === 'breach') lines.push(`p95 latency ${Math.round(m.p95LatencyMs / 1000)}s > ${Math.round(t.p95LatencyMs / 1000)}s`);
-      if (slo.status.dailyCostUsd === 'breach') lines.push(`daily cost $${m.dailyCostUsd.toFixed(2)} > $${t.dailyCostUsd}`);
+    recordSloSample(db, slo);
+
+    // Make alert state restart-safe: if this is the first call after a redeploy
+    // (i.e., _lastOverall is still null), seed it from the most recent persisted
+    // row so we don't re-fire an already-known breach.
+    if (_lastOverall === null) {
+      try {
+        const latest = db.prepare(`SELECT overall FROM slo_history ORDER BY id DESC LIMIT 1`).get();
+        if (latest?.overall) _lastOverall = latest.overall;
+      } catch { /* table may not have rows yet — ignore */ }
+    }
+
+    const { overall, lines } = sloAlert(slo);
+    if (overall === 'breach' && _lastOverall !== 'breach') {
       sendDiscordNotify('SLO breach', lines.join('\n') || 'A platform SLO is in breach.', 15158332).catch(() => {});
       console.log('[slo] breach:', lines.join('; '));
     }
-    _lastOverall = slo.overall;
+    _lastOverall = overall;
     return slo;
   } catch (err) {
     console.error('[slo] check failed:', err.message);
