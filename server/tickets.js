@@ -136,8 +136,7 @@ export function openTicketFromFinding(db, input = {}) {
 // Promote a report action item into a ticket (idempotent via dedup_key).
 // dedup_key pattern: "report:<report_id>:<item_key>"
 export function promoteFromActionItem(db, { reportId, reportSlug, item, actor = 'user' }) {
-  const pri = ['critical', 'high', 'medium', 'low'].includes(String(item.priority))
-    ? item.priority : 'medium';
+  const pri = PRIORITIES.includes(String(item.priority)) ? item.priority : 'medium';
   return openTicketFromFinding(db, {
     title: item.title,
     priority: pri,
