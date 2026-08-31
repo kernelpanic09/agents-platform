@@ -20,3 +20,14 @@ export const SIZES      = ['S', 'M', 'L', 'XL'];
 export const PRIORITIES = ['critical', 'high', 'medium', 'low'];
 export const TYPES      = ['finding', 'bug', 'feature', 'task'];
 export const STATUSES   = ['backlog', 'triaged', 'in_progress', 'in_review', 'done'];
+
+// Relative-time formatter for ticket timestamps (SQLite datetime strings).
+export function relTime(ts) {
+  if (!ts) return '—';
+  const diff = Date.now() - new Date(ts + 'Z').getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}

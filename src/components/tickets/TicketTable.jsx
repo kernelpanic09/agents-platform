@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { getList } from '../../lib/ticketsApi';
-import { PRIORITY_CLS, TYPE_LABEL } from './ticketMeta';
+import { PRIORITY_CLS, TYPE_LABEL, relTime } from './ticketMeta';
 
 const COLS = [
   { key: 'key',        label: 'Key',      sortable: true,  cls: 'w-24' },
@@ -13,16 +13,6 @@ const COLS = [
   { key: 'assignee',   label: 'Assignee', sortable: false, cls: 'w-28' },
   { key: 'updated_at', label: 'Updated',  sortable: true,  cls: 'w-28' },
 ];
-
-function relTime(ts) {
-  if (!ts) return '—';
-  const diff = Date.now() - new Date(ts + 'Z').getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 export default function TicketTable({ onOpen, reloadKey }) {
   const [tickets, setTickets] = useState([]);

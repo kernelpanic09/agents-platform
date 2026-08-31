@@ -2,22 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Trash2, RotateCcw, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getTicket, patchTicket, commentTicket, deleteTicket } from '../../lib/ticketsApi';
-import { PRIORITY_CLS, PRIORITIES, SIZES, TYPES, STATUSES } from './ticketMeta';
+import { PRIORITY_CLS, PRIORITIES, SIZES, TYPES, STATUSES, relTime } from './ticketMeta';
 
 const STATUS_LABELS = {
   backlog: 'Backlog', triaged: 'Triaged', in_progress: 'In Progress',
   in_review: 'In Review', done: 'Done',
 };
-
-function relTime(ts) {
-  if (!ts) return '';
-  const diff = Date.now() - new Date(ts + 'Z').getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 function EventRow({ ev }) {
   const label = {
