@@ -1,5 +1,6 @@
 import { runClaude, parseClaudeJson, sendDiscordNotify } from './executor.js';
 import { recordMetricPoints } from './metrics.js';
+import { autoPromoteActionItems } from './tickets.js';
 
 // Combined Reports: a report group = a named set of schedules. When members
 // finish runs, their latest findings are synthesized (one meeting-framed
@@ -308,6 +309,12 @@ export function startBuild(db, group, { dispatch = runClaude } = {}) {
             recordMetricPoints(db, group, buildId, doc, builtAt);
           } catch (e) {
             console.error(`[reports] metric extraction failed for build ${buildId}: ${e.message}`);
+          }
+
+          try {
+            autoPromoteActionItems(db, group, doc, buildId);
+          } catch (e) {
+            console.error(`[tickets] auto-promote failed for build ${buildId}: ${e.message}`);
           }
 
           sendDiscordNotify(
