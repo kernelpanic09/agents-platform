@@ -147,18 +147,23 @@ The platform was built in five planned phases (visibility â†’ configurability â†
 The UI is a flat dashboard with a deep-teal accent and a CSS-variable neutral ramp that drives both a **dark (default) and a light theme** (toggle in the sidebar, persisted, applied pre-paint to avoid flash). Hanken Grotesk type, status-pill badges - deliberately not the default AI-glassmorphism look. Every capture below is from the self-contained demo (dummy data).
 
 ### Agent Directory
-![Agent Directory](docs/screenshots/home.png?v=6)
+![Agent Directory](docs/screenshots/home.png?v=7)
 
 The 20-agent roster with search, category filters, and quick-task cards - collapsible left-rail nav grouped Monitor / Build / Intelligence. A sidebar toggle flips the whole app between the dark default and a light theme.
 
+### Operations Dashboard - the at-a-glance control tower
+![Operations Dashboard](docs/screenshots/dashboard.png)
+
+The platform overview: success-rate, latency, eval-pass-rate, and recent-failures metric tiles; a 24-hour run-activity heat strip and run-volume trend; platform SLOs; per-agent cost leaders; latency by model; and the open-ticket backlog - all global, all derived from the runs and traces tables.
+
 ### Combined Reports - AI-synthesized briefings with metric trends
-![A Combined Report briefing fused from four schedules](docs/screenshots/report-detail.png)
+![A Combined Report briefing fused from four schedules](docs/screenshots/report-detail.png?v=2)
 
 A report group fuses its member schedules' latest runs into one briefing: headline, overall verdict, a health score, per-member sections with verdict badges and metric bars, cross-cutting insights, and prioritized action items. The 14-day verdict trend strip at the bottom is deterministic (straight from the runs table).
 
 ![Building a report and viewing its metric trends](docs/screenshots/reports.gif?v=2)
 
-![The Trends tab: health score and per-metric history over time](docs/screenshots/report-trends.png)
+![The Trends tab: health score and per-metric history over time](docs/screenshots/report-trends.png?v=2)
 
 The Trends tab charts a derived health score and every metric the agents emitted, normalized into numeric series over time.
 
@@ -168,12 +173,12 @@ The Trends tab charts a derived health score and every metric the agents emitted
 The skill library (2x speed): SKILL.md skills with source provenance and attach counts, a live listing of the public `anthropics/skills` catalog with one-click **Adopt**, and attaching a skill to an agent from its profile. Attached skills are materialized into the run workspace at dispatch and loaded natively by Claude Code - the step timeline below shows the `Skill` tool firing mid-run.
 
 ### Pipelines - conditional DAG orchestration
-![The DAG pipeline builder with a conditional verdict-routing edge](docs/screenshots/pipeline-detail.png)
+![The DAG pipeline builder with a conditional verdict-routing edge](docs/screenshots/pipeline-detail.png?v=2)
 
 The pipeline builder: an audit node routes to a disaster-recovery node **only when its parsed verdict is `critical`** (`verdict === 'critical'`, sandboxed in a `vm` context), and always notifies on-call via the unconditional edge. The graph validates as a DAG, nodes and conditional edges are edited in place below, and the whole pipeline compiles to LangGraph at run time and streams per-node status live as it executes.
 
 ### Crews - saved agent teams
-![Crews](docs/screenshots/crews.png?v=3)
+![Crews](docs/screenshots/crews.png?v=4)
 
 Reusable teams with fan / chain / round-table topologies, one-click run or schedule, and suggested crews derived from the related-agents graph.
 
@@ -186,7 +191,7 @@ A parallel run streaming **step-level events** over SSE (2x speed): the agents f
 
 The same SSE channel for a saved crew: a three-agent sequential crew run (2x speed), each agent's panel flipping queued -> running -> success as the chain progresses and its tool-call timeline streams in, with per-agent summaries landing as they finish - no polling, no spinner.
 
-![A finished run with per-agent output, verdicts, provisioning chips, and persisted step timelines](docs/screenshots/run-detail.png)
+![A finished run with per-agent output, verdicts, provisioning chips, and persisted step timelines](docs/screenshots/run-detail.png?v=2)
 
 A finished run replays from history: per-agent output and verdicts, the MCP servers and skills each agent was provisioned (the chips under the header), and a collapsible per-agent step timeline reconstructed from the trace.
 
@@ -196,26 +201,31 @@ A finished run replays from history: per-agent output and verdicts, the MCP serv
 A 180+ agent catalog synced from a public agent repository. One click adopts an entry into the runnable roster (provenance-tagged), after which it is schedulable, crewable, and usable as a pipeline node, carrying a `catalog` chip. Demo mode seeds a complete example: an adopted Code Reviewer composed with the built-in personas in a schedule and a crew.
 
 ### Schedules and Runs
-![Schedules](docs/screenshots/schedules.png?v=5)
+![Schedules](docs/screenshots/schedules.png?v=6)
 
-Ten production-grade scheduled workflows spanning all three composition modes - parallel, sequential, and meeting.
+Production-grade scheduled workflows spanning all three composition modes - parallel, sequential, and meeting. A `tickets` badge marks schedules that pull in-progress work items into their runs.
 
-![Run History](docs/screenshots/runs.png?v=4)
+![Run History](docs/screenshots/runs.png?v=5)
 
 Run history with status, duration, and per-run summaries.
 
+### Tickets - findings and action items as a board
+![The Kanban ticket board: agent findings, bugs, and tasks from backlog to done](docs/screenshots/tickets.png)
+
+A Kanban board (plus Table and Gantt views) for agent findings, bugs, and action items. Report action items auto-promote into the backlog on each build (deduplicated and occurrence-counted), a CRITICAL run verdict opens a ticket automatically, and schedules flagged `works_tickets` pull up to three in-progress tickets into the run to make progress on - moving resolved ones to review. Agents never close a ticket; a human verifies every fix.
+
 ### Observability and Platform SLOs
-![Observability](docs/screenshots/observability.png?v=2)
+![Observability](docs/screenshots/observability.png?v=3)
 
 Success rate, p95 latency, and daily cost against live-configurable SLO targets - plus the cost split that makes the SSH design legible: subscription runs metered at notional API prices ("Saved vs the API") next to actual opt-in API spend.
 
 ### Settings Hub
-![Settings](docs/screenshots/settings.png?v=2)
+![Settings](docs/screenshots/settings.png?v=3)
 
 Live platform settings with source badges (env seed vs DB override vs default) - concurrency, timeouts, models, safety, retention, and SLO targets tune at runtime with no redeploy. The same page manages scoped API keys, the MCP registry, and agent-pack import/export.
 
 ### LangGraph Workflows
-![Workflows](docs/screenshots/workflows.png?v=4)
+![Workflows](docs/screenshots/workflows.png?v=5)
 
 The LangGraph routing layer: workflow types and the task router that classifies each request (RAG / multi-step workflow / SSH dispatch).
 
