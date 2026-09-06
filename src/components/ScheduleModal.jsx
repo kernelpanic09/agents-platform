@@ -36,6 +36,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
   const [model, setModel] = useState('');
   const [executionBackend, setExecutionBackend] = useState('');
   const [safetyTier, setSafetyTier] = useState('read_only');
+  const [worksTickets, setWorksTickets] = useState(false);
   const [maxTurns, setMaxTurns] = useState('');
   const [appsList, setAppsList] = useState([]);
   const [previewStep, setPreviewStep] = useState(false);
@@ -145,6 +146,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
           model: model || null,
           execution_backend: executionBackend || null,
           safety_tier: safetyTier,
+          works_tickets: worksTickets,
           max_turns: maxTurns && parseInt(maxTurns, 10) > 0 ? parseInt(maxTurns, 10) : null,
         }),
       });
@@ -162,6 +164,7 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
       setModel('');
       setExecutionBackend('');
       setSafetyTier('read_only');
+      setWorksTickets(false);
       setPreviewStep(false);
       onClose?.();
     } catch (err) {
@@ -432,6 +435,22 @@ export default function ScheduleModal({ open, onClose, onCreated, preselectedAge
                 : safetyTier === 'controlled_write'
                 ? 'Scoped, reversible writes allowed; destructive commands stay blocked by policy.'
                 : 'Dispatch requires operator approval: the run holds in pending_approval until approved.'}
+            </p>
+          </div>
+
+          {/* Ticket pickup */}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={worksTickets}
+                onChange={e => setWorksTickets(e.target.checked)}
+                className="accent-violet-500"
+              />
+              <span className="text-sm text-zinc-200">Work in-progress tickets</span>
+            </label>
+            <p className="text-xs text-zinc-500 mt-1 ml-6">
+              Offer up to 3 open tickets to this run to make progress on.
             </p>
           </div>
 

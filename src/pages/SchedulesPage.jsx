@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Plus, Play, Pause, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Play, Pause, Trash2, Ticket } from 'lucide-react';
 import AgentAvatar from '../components/AgentAvatar';
 import ScheduleModal from '../components/ScheduleModal';
 import StatusBadge from '../components/StatusBadge';
@@ -199,6 +199,14 @@ export default function SchedulesPage() {
                       <Link to={`/schedules/${s.id}`} className="flex items-center gap-2 text-zinc-200 hover:text-white">
                         <StatusDot status={s.status} />
                         <span className="font-medium">{s.name}</span>
+                        {!!s.works_tickets && (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/25 text-violet-300 text-[10px] font-medium"
+                            title="Offers up to 3 in-progress tickets to each run"
+                          >
+                            <Ticket size={9} /> tickets
+                          </span>
+                        )}
                       </Link>
                       {s.description && (
                         <div className="text-xs text-zinc-500 mt-0.5 pl-4">{s.description}</div>
