@@ -149,6 +149,38 @@ export function promoteFromActionItem(db, { reportId, reportSlug, item, actor = 
   });
 }
 
+// Derive a stable dedup key from an action-item title (public reports have no item.key).
+export function slugifyKey(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+// Promote every effective action item from a finished report build into the global
+// ticket backlog. Idempotent per (report, item) via dedup_key "report:<id>:<slug>".
+export function autoPromoteActionItems(db, group, doc, buildId) {
+  const items = Array.isArray(doc?.action_items) ? doc.action_items : [];
+  const promoted = [];
+  for (const item of items) {
+    const title = (item?.title || '').trim();
+    if (!title) continue;
+    try {
+      const key = item.key || slugifyKey(title);
+      promoted.push(promoteFromActionItem(db, {
+        reportId: group.id,
+        reportSlug: group.slug,
+        item: { ...item, title, key },
+        actor: 'system',
+      }));
+    } catch (e) {
+      console.error(`[tickets] auto-promote item failed ("${title}"): ${e.message}`);
+    }
+  }
+  return promoted;
+}
+
 const EVENT_FOR_FIELD = { status: 'status_change', priority: 'priority_change', assignee: 'assigned' };
 
 export function updateTicket(db, id, patch = {}, actor = 'user') {
