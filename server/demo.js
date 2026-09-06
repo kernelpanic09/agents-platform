@@ -1,4 +1,4 @@
-import { seedDemoRuns, seedDemoReport, seedDemoMemories, seedDemoPipeline } from './demo-content.js';
+import { seedDemoRuns, seedDemoReport, seedDemoMemories, seedDemoPipeline, seedDemoTickets } from './demo-content.js';
 
 export const IS_DEMO = process.env.DEMO_MODE === 'true';
 
@@ -134,6 +134,10 @@ export function seedDemoData(db) {
   try { seedDemoReport(db); } catch (e) { console.error('[demo] seedDemoReport:', e.message); }
   try { seedDemoMemories(db); } catch (e) { console.error('[demo] seedDemoMemories:', e.message); }
   try { seedDemoPipeline(db); } catch (e) { console.error('[demo] seedDemoPipeline:', e.message); }
+  try { seedDemoTickets(db); } catch (e) { console.error('[demo] seedDemoTickets:', e.message); }
+  // One schedule opts into ticket work so the /schedules "tickets" badge and the
+  // schedule form's works_tickets toggle are demonstrable.
+  try { db.prepare('UPDATE schedules SET works_tickets = 1 WHERE id = 1').run(); } catch (e) { console.error('[demo] works_tickets flag:', e.message); }
 
   console.log('[demo] Sample data seeded');
 }

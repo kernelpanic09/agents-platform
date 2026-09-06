@@ -4,6 +4,7 @@
 // fabricated, no external services, no real infrastructure.
 import { recordTrace } from './observability/telemetry.js';
 import { backfill } from './metrics.js';
+import { createTicket, updateTicket } from './tickets.js';
 
 // Deterministic pseudo-random so the seed is stable across boots (no Math.random
 // drift between runs); seeded by an integer counter.
@@ -163,7 +164,58 @@ export function seedDemoRuns(db) {
       count++;
     }
   }
+  // A handful of runs within the last 24h so the dashboard run-activity heat
+  // strip + run-volume chart show a current pulse (the loop above stops ~1 day
+  // back, which would otherwise leave the 24h view empty).
+  const recentSched = schedById(1);
+  if (recentSched) {
+    const tmpl = RUN_TEMPLATES[1];
+    const agentNames = Object.keys(tmpl);
+    for (const h of [1, 3, 4, 6, 9, 12, 15, 18, 21, 23]) {
+      const when = new Date(Date.now() - h * 3600000 - Math.floor(rand() * 40) * 60000);
+      const iso = when.toISOString().replace('T', ' ').slice(0, 19);
+      const outputs = {};
+      const verdicts = [];
+      for (const name of agentNames) { outputs[name] = tmpl[name].out; verdicts.push(tmpl[name].verdict); }
+      const verdict = verdicts.reduce((w, v) => (WORST[v] > WORST[w] ? v : w), 'ok');
+      const summary = agentNames.map(n => `${n}: ${(tmpl[n].out.match(/SUMMARY:\s*(.+)$/m) || [, ''])[1]}`).join('\n').slice(0, 1500);
+      insRun.run(1, recentSched.agent_ids, recentSched.mode, recentSched.task_prompt, 'success',
+        iso, iso, 8000 + Math.floor(rand() * 40000), summary, JSON.stringify(outputs), JSON.stringify(outputs), verdict, iso);
+      count++;
+    }
+  }
   console.log(`[demo] seeded ${count} completed runs with step timelines`);
+}
+
+// ---- Example tickets (Kanban board + dashboard "open tickets" tile) ----
+// A believable backlog: some agent findings promoted from the report (source
+// report_action_item, matching the seeded report's action items), plus manual
+// tasks/bugs spread across every column. All sanitized, no real infra.
+export function seedDemoTickets(db) {
+  if (db.prepare('SELECT COUNT(*) c FROM tickets').get().c > 0) return;
+  const T = [
+    { title: 'Rebalance two memory-heavy workloads off node-2', priority: 'high', type: 'finding', assignee: 'Atlas', status: 'in_progress', report: 'rebalance-two-memory-heavy-workloads-off-node-2', occ: 3 },
+    { title: 'Schedule ingress wildcard cert renewal', priority: 'medium', type: 'finding', assignee: 'Cipher', status: 'in_progress', report: 'schedule-ingress-wildcard-cert-renewal', occ: 2 },
+    { title: 'Fix false-positive disk-full alert on node-3', priority: 'medium', type: 'bug', assignee: 'Sentinel', status: 'in_progress' },
+    { title: 'Tune the transient-restart alert rule', priority: 'low', type: 'task', assignee: 'Sentinel', status: 'triaged', report: 'tune-the-transient-restart-alert-rule' },
+    { title: 'Investigate elevated p95 latency on the eval suite', priority: 'medium', type: 'task', assignee: 'Scout', status: 'backlog' },
+    { title: 'Right-size resource requests for the media workloads', priority: 'high', type: 'task', assignee: 'Atlas', status: 'backlog' },
+    { title: 'Document the restore-drill runbook', priority: 'low', type: 'task', assignee: 'Bastion', status: 'in_review' },
+    { title: 'Add retry/backoff to the nightly backup job', priority: 'medium', type: 'task', assignee: 'Bastion', status: 'done' },
+    { title: 'Reclaim orphaned load-balancer IPs', priority: 'low', type: 'task', assignee: 'Proxy', status: 'done' },
+  ];
+  for (const t of T) {
+    const created = createTicket(db, {
+      title: t.title, priority: t.priority, type: t.type, assignee: t.assignee,
+      source_type: t.report ? 'report_action_item' : 'manual',
+      source_ref: t.report ? { report_id: 1, item_key: t.report } : null,
+      dedup_key: t.report ? `report:1:${t.report}` : null,
+      actor: t.report ? 'system' : 'user',
+    });
+    if (t.status && t.status !== 'backlog') updateTicket(db, created.id, { status: t.status }, 'user');
+    if (t.occ && t.occ > 1) db.prepare('UPDATE tickets SET occurrence_count = ? WHERE id = ?').run(t.occ, created.id);
+  }
+  console.log(`[demo] seeded ${T.length} example tickets`);
 }
 
 // ---- Combined Report with metric trends ----
