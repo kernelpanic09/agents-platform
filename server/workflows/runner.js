@@ -9,6 +9,7 @@ import { distillRunMemories } from '../memory.js';
 import { substitute } from '../variables.js';
 import { onRunFinished as reportsOnRunFinished } from '../reports.js';
 import { openTicketFromFinding } from '../tickets.js';
+import { selectTicketsForRun, ticketPromptSection, parseTicketBlock, mergeTicketOutcomes, applyTicketOutcomes } from '../ticket-work.js';
 import { IS_DEMO } from '../demo.js';
 import { simulateRun } from '../demo-sim.js';
 
@@ -30,6 +31,13 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   let transcript = '';
   let perAgentOutput = null;
   let status = 'success';
+
+  // Ticket pickup (works_tickets): attach up to 3 in_progress tickets to this
+  // run so agents make progress on the backlog. Built once, appended to the
+  // task prompt at every SSH dispatch site; outcomes applied on success.
+  let workTickets = [];
+  try { workTickets = selectTicketsForRun(db, schedule); } catch { workTickets = []; }
+  const ticketSection = ticketPromptSection(workTickets);
   let errorMessage = null;
   let exitCode = 0;
   let steps = [];
@@ -55,7 +63,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
     if (schedule.mode === 'meeting') {
       const mctx = meetingDispatchContext(db, agents, { backend: runOpts.backend });
       recordProvision('Meeting', mctx);
-      const prompt = buildMeetingPrompt(agents, schedule.task_prompt, tier, mctx);
+      const prompt = buildMeetingPrompt(agents, schedule.task_prompt + ticketSection, tier, mctx);
       emitRunEvent(runId, { type: 'agent_start', agent: 'Meeting' });
       const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, mcpConfig: mctx.mcpConfig, skills: mctx.skills, onStreamEvent: (step) => emitRunEvent(runId, { type: 'step', agent: 'Meeting', step }) });
       if (timedOut) { status = 'timeout'; errorMessage = 'Run exceeded timeout'; }
@@ -83,8 +91,9 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
       const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
       recordProvision(agent.name, ctx);
       const isSsh = route !== 'rag' && route !== 'workflow';
+      if (!isSsh) workTickets = [];
       const taskPayload = isSsh
-        ? buildAgentPrompt(agent, substitute(schedule.task_prompt, ctx.vars || {}), null, tier, ctx)
+        ? buildAgentPrompt(agent, substitute(schedule.task_prompt + ticketSection, ctx.vars || {}), null, tier, ctx)
         : substitute(schedule.task_prompt, ctx.vars || {});
       const result = await graph.invoke({
         task: taskPayload,
@@ -116,7 +125,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
           emitRunEvent(runId, { type: 'agent_start', agent: agent.name });
           const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
           recordProvision(agent.name, ctx);
-          const prompt = buildAgentPrompt(agent, schedule.task_prompt, prior, tier, ctx);
+          const prompt = buildAgentPrompt(agent, schedule.task_prompt + ticketSection, prior, tier, ctx);
           const { stdout, stderr, exitCode: ec, timedOut } = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills, onStreamEvent: (step) => emitRunEvent(runId, { type: 'step', agent: agent.name, step }) });
           if (timedOut) { status = 'timeout'; errorMessage = `Agent ${agent.name} timed out`; outputs[agent.name] = '[timed out]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'timeout' }); break; }
           if (ec !== 0) { status = 'failed'; errorMessage = `Agent ${agent.name} exited ${ec}`; outputs[agent.name] = '[failed]'; emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: 'failed' }); break; }
@@ -135,7 +144,7 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
             emitRunEvent(runId, { type: 'agent_start', agent: agent.name });
             const ctx = agentDispatchContext(db, agent, { backend: runOpts.backend });
             recordProvision(agent.name, ctx);
-            const prompt = buildAgentPrompt(agent, schedule.task_prompt, null, tier, ctx);
+            const prompt = buildAgentPrompt(agent, schedule.task_prompt + ticketSection, null, tier, ctx);
             const result = await runClaude(prompt, { ...runOpts, ...resolveInference(agent, runOpts), agentId: agent.id, mcpConfig: ctx.mcpConfig, skills: ctx.skills, onStreamEvent: (step) => emitRunEvent(runId, { type: 'step', agent: agent.name, step }) });
             const ok = !result.timedOut && result.exitCode === 0;
             emitRunEvent(runId, { type: 'agent_done', agent: agent.name, status: result.timedOut ? 'timeout' : ok ? 'success' : 'failed', summary: ok ? extractSummary(resultText(parseClaudeJson(result.stdout), result.stdout)) : undefined });
@@ -173,6 +182,18 @@ export async function executeRunViaGraph({ db, runId, schedule, agents }) {
   `).run(status, finishedAt, durationMs, summary || '', transcript || '',
     perAgentOutput ? JSON.stringify(perAgentOutput) : null, exitCode, errorMessage, worstVerdict(verdicts),
     Object.keys(provisioning).length ? JSON.stringify(provisioning) : null, runId);
+
+  // works_tickets: fold each offered ticket's outcome back into the backlog
+  // (attempt comment always; resolved claim → in_review). Never breaks the run.
+  if (workTickets.length && status === 'success') {
+    try {
+      const texts = perAgentOutput ? Object.values(perAgentOutput) : [transcript];
+      const merged = mergeTicketOutcomes(texts.map(parseTicketBlock));
+      applyTicketOutcomes(db, workTickets, merged, { runId });
+    } catch (e) {
+      console.error('[tickets] outcome apply failed:', e.message);
+    }
+  }
 
   db.prepare(`UPDATE schedules SET last_run_at = ? WHERE id = ?`).run(finishedAt, schedule.id);
 

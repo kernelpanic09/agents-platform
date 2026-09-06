@@ -20,7 +20,7 @@ export function selectTicketsForRun(db, schedule) {
 export function ticketPromptSection(tickets) {
   if (!Array.isArray(tickets) || !tickets.length) return '';
   const parts = ['\n\n---\n\n# In-Progress Tickets\n\n'];
-  parts.push('These project tickets are in progress and assigned to this run. After completing the main task, attempt to resolve each one within your safety tier. Never mark a ticket done — a human verifies every fix. If your tier blocks the fix, diagnose and report exactly what is needed.\n\n');
+  parts.push('These tickets are in progress and assigned to this run. After completing the main task, attempt to resolve each one within your safety tier. Never mark a ticket done — a human verifies every fix. If your tier blocks the fix, diagnose and report exactly what is needed.\n\n');
   for (const t of tickets) {
     parts.push(`## ${t.key}: ${t.title}\n`);
     parts.push(`Priority: ${t.priority} · occurrences: ${t.occurrence_count ?? 1}\n`);
