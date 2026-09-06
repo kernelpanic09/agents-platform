@@ -221,6 +221,10 @@ export function initDb() {
     db.exec(`ALTER TABLE schedules ADD COLUMN max_turns INTEGER DEFAULT NULL`);
     console.log('[db] migrated: schedules.max_turns added');
   }
+  if (!schedCols.has('works_tickets')) {
+    db.exec(`ALTER TABLE schedules ADD COLUMN works_tickets INTEGER NOT NULL DEFAULT 0`);
+    console.log('[db] migrated: schedules.works_tickets added');
+  }
   const traceCols = new Set(db.prepare(`PRAGMA table_info(traces)`).all().map(c => c.name));
   if (!traceCols.has('source')) {
     db.exec(`ALTER TABLE traces ADD COLUMN source TEXT DEFAULT 'api'`);
