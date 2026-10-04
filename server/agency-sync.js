@@ -33,14 +33,14 @@ const COLOR_MAP = {
   white: '#FFFFFF',
 };
 
-function resolveColor(color) {
+export function resolveColor(color) {
   if (!color) return '#8B5CF6';
   if (color.startsWith('#')) return color;
   return COLOR_MAP[color.toLowerCase()] || '#8B5CF6';
 }
 
 // Simple YAML frontmatter parser (handles the agency-agents format)
-function parseFrontmatter(content) {
+export function parseFrontmatter(content) {
   const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
   if (!match) return { meta: {}, body: content };
 
