@@ -631,7 +631,7 @@ agents-platform/
 │                               # Eval (A/B), Settings (hub + keys + MCP + packs),
 │                               # Dashboard (ops control tower), Tickets (table/kanban/gantt)
 │
-└── test/                       # 18 files, 134 cases (node:test):
+└── test/                       # 26 files, 248 cases (node:test):
     ├── pipeline.test.js        #   DAG validation, sandboxed conditions, LangGraph routing
     ├── reports.test.js / metrics.test.js   # synthesis engine + metric-series normalization
     ├── skills.test.js          #   SKILL.md parse, materialization, attach
@@ -661,7 +661,7 @@ npm run dev
 npm run build
 npm start
 
-# Run the unit test suite (134 tests, no API key or SSH needed)
+# Run the unit test suite (248 tests, no API key or SSH needed)
 npm test
 ```
 
